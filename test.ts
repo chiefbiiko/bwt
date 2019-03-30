@@ -1,12 +1,15 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { Curve25519 } from "./../curve25519/mod.ts";
-import {
-  Payload,
-  Authenticator,
-  Curve25519Keys,
-  createAuthenticator
-} from "./mod.ts";
+import { Payload, Authenticator, createAuthenticator } from "./mod.ts";
+import { toByteArray, fromByteArray } from "./util.ts";
+
+function createPayload(...sources): Payload {
+  return Object.assign(
+    { fraud: "money", expires: Date.now() + 100 },
+    ...sources
+  );
+}
 
 interface party {
   curve: Curve25519;
@@ -49,12 +52,49 @@ b.bwt = createAuthenticator({
   peerPublicKey: a.pk
 });
 
-test(function bwtAliceStringifiesBobParsesSuccesfully(): void {
-  const inputPayload: Payload = { fraud: "money", expires: Date.now() + 100 };
+test(function bwtAliceAndBob(): void {
+  const inputPayload: Payload = createPayload();
   const token: string = a.bwt.stringify(inputPayload);
-  console.error('token', token)
   const outputPayload: Payload = b.bwt.parse(token);
   assertEquals(outputPayload.fraud, inputPayload.fraud);
+  assertEquals(outputPayload.expires, inputPayload.expires);
 });
 
-runIfMain(import.meta);
+test(function bwtParsesNullOnCorruptNonce(): void {
+  const inputPayload: Payload = createPayload();
+  let token: string = a.bwt.stringify(inputPayload);
+  const rebased: Uint8Array = toByteArray(token);
+  rebased[0] = 0x99;
+  token = fromByteArray(rebased);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+test(function bwtParsesNullOnCorruptTag(): void {
+  const inputPayload: Payload = createPayload();
+  let token: string = a.bwt.stringify(inputPayload);
+  const rebased: Uint8Array = toByteArray(token);
+  rebased[12] = 0x99;
+  token = fromByteArray(rebased);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+test(function bwtParsesNullOnCorruptCiphertext(): void {
+  const inputPayload: Payload = createPayload();
+  let token: string = a.bwt.stringify(inputPayload);
+  const rebased: Uint8Array = toByteArray(token);
+  rebased[rebased.length - 1] = 0x99;
+  token = fromByteArray(rebased);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+test(function bwtParsesNullIfExpired(): void {
+  const inputPayload: Payload = createPayload({ expires: Date.now() - 1 });
+  let token: string = a.bwt.stringify(inputPayload);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+runIfMain(import.meta, { parallel: true });
