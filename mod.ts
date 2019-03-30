@@ -3,9 +3,12 @@ import {
   aeadChaCha20Poly1305Open,
   NONCE_BYTES,
   TAG_BYTES
-} from "./../aead_chacha20_poly1305/aead_chacha20_poly1305.ts";
-import { Curve25519 } from "./../curve25519/mod.ts";
-import { toByteArray, fromByteArray } from "./util.ts";
+} from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/aead_chacha20_poly1305.ts";
+import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
+import {
+  toUint8Array,
+  fromUint8Array
+} from "https://denopkg.com/chiefbiiko/base64/mod.ts";
 
 export interface Payload {
   [key: string]: unknown;
@@ -50,10 +53,10 @@ export function createAuthenticator({
       pac.set(nonce, 0);
       pac.set(tag, NONCE_BYTES);
       pac.set(ciphertext, NONCE_BYTES + TAG_BYTES);
-      return fromByteArray(pac);
+      return fromUint8Array(pac);
     },
     parse(token: string): Payload {
-      const rebased: Uint8Array = toByteArray(token);
+      const rebased: Uint8Array = toUint8Array(token);
       const nonce: Uint8Array = rebased.subarray(0, NONCE_BYTES);
       const tag: Uint8Array = rebased.subarray(
         NONCE_BYTES,
@@ -79,7 +82,12 @@ export function createAuthenticator({
       } catch (_) {
         return null;
       }
-      if (typeof payload.expires !== "number" || Date.now() > payload.expires) {
+      if (
+        typeof payload.exp !== "number" ||
+        Number.isNaN(payload.exp) ||
+        payload.exp === Infinity ||
+        Date.now() > payload.exp
+      ) {
         return null;
       }
       return payload;

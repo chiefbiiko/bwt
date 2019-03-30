@@ -1,14 +1,14 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { Curve25519 } from "./../curve25519/mod.ts";
+import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
+import {
+  toUint8Array,
+  fromUint8Array
+} from "https://denopkg.com/chiefbiiko/base64/mod.ts";
 import { Payload, Authenticator, createAuthenticator } from "./mod.ts";
-import { toByteArray, fromByteArray } from "./util.ts";
 
-function createPayload(...sources): Payload {
-  return Object.assign(
-    { fraud: "money", expires: Date.now() + 100 },
-    ...sources
-  );
+function createPayload(...sources: Payload[]): Payload {
+  return Object.assign({ fraud: "money", exp: Date.now() + 100 }, ...sources);
 }
 
 interface party {
@@ -56,16 +56,15 @@ test(function bwtAliceAndBob(): void {
   const inputPayload: Payload = createPayload();
   const token: string = a.bwt.stringify(inputPayload);
   const outputPayload: Payload = b.bwt.parse(token);
-  assertEquals(outputPayload.fraud, inputPayload.fraud);
-  assertEquals(outputPayload.expires, inputPayload.expires);
+  assertEquals(outputPayload, inputPayload);
 });
 
 test(function bwtParsesNullOnCorruptNonce(): void {
   const inputPayload: Payload = createPayload();
   let token: string = a.bwt.stringify(inputPayload);
-  const rebased: Uint8Array = toByteArray(token);
+  const rebased: Uint8Array = toUint8Array(token);
   rebased[0] = 0x99;
-  token = fromByteArray(rebased);
+  token = fromUint8Array(rebased);
   const outputPayload: Payload = b.bwt.parse(token);
   assertEquals(outputPayload, null);
 });
@@ -73,9 +72,9 @@ test(function bwtParsesNullOnCorruptNonce(): void {
 test(function bwtParsesNullOnCorruptTag(): void {
   const inputPayload: Payload = createPayload();
   let token: string = a.bwt.stringify(inputPayload);
-  const rebased: Uint8Array = toByteArray(token);
+  const rebased: Uint8Array = toUint8Array(token);
   rebased[12] = 0x99;
-  token = fromByteArray(rebased);
+  token = fromUint8Array(rebased);
   const outputPayload: Payload = b.bwt.parse(token);
   assertEquals(outputPayload, null);
 });
@@ -83,15 +82,29 @@ test(function bwtParsesNullOnCorruptTag(): void {
 test(function bwtParsesNullOnCorruptCiphertext(): void {
   const inputPayload: Payload = createPayload();
   let token: string = a.bwt.stringify(inputPayload);
-  const rebased: Uint8Array = toByteArray(token);
+  const rebased: Uint8Array = toUint8Array(token);
   rebased[rebased.length - 1] = 0x99;
-  token = fromByteArray(rebased);
+  token = fromUint8Array(rebased);
   const outputPayload: Payload = b.bwt.parse(token);
   assertEquals(outputPayload, null);
 });
 
 test(function bwtParsesNullIfExpired(): void {
-  const inputPayload: Payload = createPayload({ expires: Date.now() - 1 });
+  const inputPayload: Payload = createPayload({ exp: Date.now() - 1 });
+  let token: string = a.bwt.stringify(inputPayload);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+test(function bwtParsesNullIfExpiryIsNaN(): void {
+  const inputPayload: Payload = createPayload({ exp: NaN });
+  let token: string = a.bwt.stringify(inputPayload);
+  const outputPayload: Payload = b.bwt.parse(token);
+  assertEquals(outputPayload, null);
+});
+
+test(function bwtParsesNullIfExpiryIsInfinity(): void {
+  const inputPayload: Payload = createPayload({ exp: Infinity });
   let token: string = a.bwt.stringify(inputPayload);
   const outputPayload: Payload = b.bwt.parse(token);
   assertEquals(outputPayload, null);
