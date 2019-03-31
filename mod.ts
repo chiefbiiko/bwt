@@ -33,6 +33,14 @@ function nextNonce(): Uint8Array {
   return enc.encode(String(Date.now()).slice(-12));
 }
 
+// TODO: 
+// + add required versioned type field. "typ": "BWTv1"
+// + import from aead*mod.ts seal, open
+// + export SECRET_KEY_BYTES and PUBLIC_KEY_BYTES from module curve25519
+// + then validate curve25519 key lengths
+// + change payload === null condition to !payload
+// + make sure shared key has 256 bits, while within the factory still
+
 export function createAuthenticator({
   ownSecretKey,
   peerPublicKey
