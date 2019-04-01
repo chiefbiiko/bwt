@@ -8,7 +8,9 @@ import {
 import { Payload, Authenticator, createAuthenticator } from "./mod.ts";
 
 function createPayload(...sources: Payload[]): Payload {
-  return Object.assign({ fraud: "money", exp: Date.now() + 100 }, ...sources);
+  return Object.assign({
+    exp: Date.now() + 100, // required
+  }, ...sources);
 }
 
 interface party {

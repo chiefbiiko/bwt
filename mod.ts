@@ -1,9 +1,10 @@
 import {
-  aeadChaCha20Poly1305Seal,
-  aeadChaCha20Poly1305Open,
+  seal as aeadChaCha20Poly1305Seal,
+  open as aeadChaCha20Poly1305Open,
   NONCE_BYTES,
   TAG_BYTES
-} from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/aead_chacha20_poly1305.ts";
+} from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
+import { constantTimeEqual } from  "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/constant_time_equal/constant_time_equal.ts";
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
   toUint8Array as base64ToUint8Array,
@@ -24,32 +25,40 @@ export interface Curve25519Keys {
   peerPublicKey: Uint8Array;
 }
 
+export const MAGIC_BUF: Uint8Array = Uint8Array.from([0x42, 0x57, 0x54, 0x31]);
+export const SECRET_KEY_BYTES: number = 32;
+export const PUBLIC_KEY_BYTES: number = 32;
+
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
-const NONCE_TAG_BYTES: number = NONCE_BYTES + TAG_BYTES;
+const MAGIC_BYTES: number = 4;
+const MAGIC_NONCE_BYTES: number = MAGIC_BUF.length + NONCE_BYTES;
+const MAGIC_NONCE_TAG_BYTES: number = MAGIC_BUF.length + NONCE_BYTES + TAG_BYTES;
 
 function nextNonce(): Uint8Array {
   return enc.encode(String(Date.now()).slice(-12));
 }
 
 // TODO: 
-// + add required versioned type field. "typ": "BWTv1"
-// + import from aead*mod.ts seal, open
-// + export SECRET_KEY_BYTES and PUBLIC_KEY_BYTES from module curve25519
-// + then validate curve25519 key lengths
-// + change payload === null condition to !payload
-// + make sure shared key has 256 bits, while within the factory still
+//   think about code usage patterns & whether caching the key in the factory
+//   makes sense
 
 export function createAuthenticator({
   ownSecretKey,
   peerPublicKey
 }: Curve25519Keys): Authenticator {
+  if (ownSecretKey.length !== SECRET_KEY_BYTES || peerPublicKey.length !== PUBLIC_KEY_BYTES) {
+    return null;
+  }
   const key: Uint8Array = CURVE25519.scalarMult(ownSecretKey, peerPublicKey);
+  if (key.length !== 32) {
+    return null;
+  }
   return {
     stringify(payload: Payload): string {
       if (
-        payload === null ||
+        !payload ||
         typeof payload.exp !== "number" ||
         Number.isNaN(payload.exp) ||
         !Number.isFinite(payload.exp)
@@ -65,22 +74,24 @@ export function createAuthenticator({
         nonce
       );
       const pac: Uint8Array = new Uint8Array(
-        NONCE_TAG_BYTES + ciphertext.length
+        MAGIC_NONCE_TAG_BYTES + ciphertext.length
       );
-      pac.set(nonce, 0);
-      pac.set(tag, NONCE_BYTES);
-      pac.set(ciphertext, NONCE_TAG_BYTES);
+      pac.set(MAGIC_BUF, 0);
+      pac.set(nonce, MAGIC_BYTES);
+      pac.set(tag, MAGIC_NONCE_BYTES);
+      pac.set(ciphertext, MAGIC_NONCE_TAG_BYTES);
       return base64FromUint8Array(pac);
     },
     parse(token: string): Payload {
       const rebased: Uint8Array = base64ToUint8Array(token);
-      const nonce: Uint8Array = rebased.subarray(0, NONCE_BYTES);
-      const tag: Uint8Array = rebased.subarray(NONCE_BYTES, NONCE_TAG_BYTES);
+      const magic: Uint8Array = rebased.subarray(0, MAGIC_BYTES);
+      const nonce: Uint8Array = rebased.subarray(MAGIC_BYTES, MAGIC_NONCE_BYTES);
+      const tag: Uint8Array = rebased.subarray(MAGIC_NONCE_BYTES, MAGIC_NONCE_TAG_BYTES);
       const ciphertext: Uint8Array = rebased.subarray(
-        NONCE_TAG_BYTES,
+        MAGIC_NONCE_TAG_BYTES,
         rebased.length
       );
-      if (nonce.length !== NONCE_BYTES || tag.length !== TAG_BYTES) {
+      if (magic.length !== MAGIC_BYTES || nonce.length !== NONCE_BYTES || tag.length !== TAG_BYTES || !constantTimeEqual(magic, MAGIC_BUF)) {
         return null;
       }
       const plaintext: Uint8Array = aeadChaCha20Poly1305Open(
@@ -100,7 +111,7 @@ export function createAuthenticator({
         return null;
       }
       if (
-        payload === null ||
+        !payload ||
         typeof payload.exp !== "number" ||
         Number.isNaN(payload.exp) ||
         !Number.isFinite(payload.exp) ||
