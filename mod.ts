@@ -43,6 +43,8 @@ function nextNonce(): Uint8Array {
 // TODO: 
 //   think about code usage patterns & whether caching the key in the factory
 //   makes sense
+//     -> createSealer({ sk, pk }), Sealer#stringify(payload)
+//     -> createOpener({ sk }), Opener#parse(token)
 
 export function createAuthenticator({
   ownSecretKey,
