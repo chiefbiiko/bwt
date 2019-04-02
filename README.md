@@ -12,6 +12,9 @@
 
 ## TODOs
 
+* Refactor to accepting a header and payload; with the header containing the
+  `iss`, `aud`, `iat`, `kid`, `typ`, and `exp` claims and the nonce; making it the AAD
+
 * Catch `JSON.stringify` errors (and return null) in the `stringify` method
 
 * Decouple `stringify` and `parse` to standalone functions
@@ -24,31 +27,22 @@
 
 1. Enable usage of one parser for opening tokens from various issuers
 
-  **_Approach_**
-  
-    * Prepend the public key of the issuer to the msg pack and have the receiver
-      use that for opening the token
-     
-      * `parse` would then not need to get the peer public key passed as 
-      argument
-
-
 ## Pending Flaws, Security Considerations
 
 * How to mitigate DoS attacks that target `POLY1305`?
 
-* `iss`, `aud`, `iat` claims required? No.
+* `iss`, `aud`, `iat`, `kid`, `typ`, and `exp` claims required? Probably yes.
 
 * `throw` or `null` if secret/public key lengths are not correct?
 
 * Is indicating the token type through a plain magic number a security threat?
 
-* Does returning null before execution of the entire function body reveal any 
+* Does returning null before execution of the entire function body reveal any
   vulnerable information?
 
 ## Threat Mitigations
 
-* No [cryptographic agility](https://tools.ietf.org/html/rfc7518#section-8.1) 
+* No [cryptographic agility](https://tools.ietf.org/html/rfc7518#section-8.1)
   available to developers
 
 * [AEAD](https://en.wikipedia.org/wiki/Authenticated_encryption) only
