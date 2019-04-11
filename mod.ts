@@ -4,7 +4,7 @@ import {
   NONCE_BYTES,
   TAG_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
-import { constantTimeEqual } from  "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/constant_time_equal/constant_time_equal.ts";
+import { constantTimeEqual } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/constant_time_equal/constant_time_equal.ts";
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
   toUint8Array as base64ToUint8Array,
@@ -15,7 +15,7 @@ export interface Metadata {
   typ: string;
   iss: string;
   aud: string;
-  kid: number | string;
+  kid: number | string;
   iat: number;
   exp: number;
 }
@@ -40,6 +40,7 @@ export interface Curve25519Keys {
 
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
+const SHARED_KEY_BYTES: number = 32;
 
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
@@ -65,11 +66,14 @@ export function createAuthenticator({
   ownSecretKey,
   peerPublicKey
 }: Curve25519Keys): Authenticator {
-  if (ownSecretKey.length !== SECRET_KEY_BYTES || peerPublicKey.length !== PUBLIC_KEY_BYTES) {
+  if (
+    ownSecretKey.length !== SECRET_KEY_BYTES ||
+    peerPublicKey.length !== PUBLIC_KEY_BYTES
+  ) {
     return null;
   }
   const key: Uint8Array = CURVE25519.scalarMult(ownSecretKey, peerPublicKey);
-  if (key.length !== 32) {
+  if (key.length !== SHARED_KEY_BYTES) {
     return null;
   }
   return {
@@ -84,9 +88,11 @@ export function createAuthenticator({
         return null;
       }
       const nonce: Uint8Array = nextNonce();
-      const aad: Uint8Array = enc.encode(JSON.stringify(Object.assign(
-        {}, metadata, { nonce: Array.from(nonce) }
-      )));
+      const aad: Uint8Array = enc.encode(
+        JSON.stringify(
+          Object.assign({}, metadata, { nonce: Array.from(nonce) })
+        )
+      );
       const plaintext: Uint8Array = enc.encode(JSON.stringify(payload));
       const { ciphertext, tag } = aeadChaCha20Poly1305Seal(
         key,
@@ -94,7 +100,9 @@ export function createAuthenticator({
         plaintext,
         aad
       );
-      return `${base64FromUint8Array(aad)}.${base64FromUint8Array(ciphertext)}.${base64FromUint8Array(tag)}`;
+      return `${base64FromUint8Array(aad)}.${base64FromUint8Array(
+        ciphertext
+      )}.${base64FromUint8Array(tag)}`;
     },
     parse(token: string): Payload {
       if (!token) {
