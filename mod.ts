@@ -38,28 +38,28 @@ export interface Curve25519Keys {
   peerPublicKey: Uint8Array;
 }
 
-// `iss`, `aud`, `iat`, `kid`, `typ`, and `exp`
-
-// export const MAGIC_BUF: Uint8Array = Uint8Array.from([0x42, 0x57, 0x54, 0x31]);
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
-// const MAGIC_BYTES: number = 4;
-// const MAGIC_NONCE_BYTES: number = MAGIC_BUF.length + NONCE_BYTES;
-// const NONCE_TAG_BYTES: number = NONCE_BYTES + TAG_BYTES;
 
 function nextNonce(): Uint8Array {
   return enc.encode(String(Date.now()).slice(-12));
 }
 
 // TODO:
-//   think about code usage patterns & whether caching the key in the factory
-//   makes sense
-//     -> createSealer({ sk, pk }), Sealer#stringify(payload)
-//     -> createOpener({ sk }), Opener#parse(token)
+//   + have parse return metadata and payload
+//   + make metadata and payload validation funcs
+//   + catch all JSON* and base64* errors
+//   + think about code usage patterns & whether caching the key in the factory
+//     makes sense
+//       -> createSealer(/**/), Sealer#stringify(metadata, payload)
+//       -> createOpener(/**/), Opener#parse(token)
+//   + make standalone stringify and parse (new interfaces Sealer, Opener)
+//   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
+//   + revisit and polish all dependencies
 
 export function createAuthenticator({
   ownSecretKey,
@@ -94,32 +94,9 @@ export function createAuthenticator({
         plaintext,
         aad
       );
-      // const pac: Uint8Array = new Uint8Array(
-      //   NONCE_TAG_BYTES + ciphertext.length
-      // );
-      // // pac.set(MAGIC_BUF, 0);
-      // // pac.set(nonce, MAGIC_BYTES);
-      // pac.set(aad, 0);
-      // // pac.set(tag, MAGIC_NONCE_BYTES);
-      // pac.set(tag, aad.length);
-      // // pac.set(ciphertext, MAGIC_NONCE_TAG_BYTES);
-      // pac.set(ciphertext, aad.length + TAG_BYTES)
-      // return base64FromUint8Array(pac);
       return `${base64FromUint8Array(aad)}.${base64FromUint8Array(ciphertext)}.${base64FromUint8Array(tag)}`;
     },
     parse(token: string): Payload {
-      // const rebased: Uint8Array = base64ToUint8Array(token);
-      // // const magic: Uint8Array = rebased.subarray(0, MAGIC_BYTES);
-      // // const nonce: Uint8Array = rebased.subarray(MAGIC_BYTES, MAGIC_NONCE_BYTES);
-      // // const tag: Uint8Array = rebased.subarray(MAGIC_NONCE_BYTES, MAGIC_NONCE_TAG_BYTES);
-      // // const ciphertext: Uint8Array = rebased.subarray(
-      // //   MAGIC_NONCE_TAG_BYTES,
-      // //   rebased.length
-      // // );
-      // const aad: Uint8Array = null;
-      // // if (magic.length !== MAGIC_BYTES || nonce.length !== NONCE_BYTES || tag.length !== TAG_BYTES || !constantTimeEqual(magic, MAGIC_BUF)) {
-      // //   return null;
-      // // }
       if (!token) {
         return null;
       }
