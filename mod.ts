@@ -51,14 +51,13 @@ function nextNonce(): Uint8Array {
 }
 
 // TODO:
-//   + have parse return metadata and payload
 //   + make metadata and payload validation funcs
 //   + catch all JSON* and base64* errors
 //   + think about code usage patterns & whether caching the key in the factory
 //     makes sense
-//       -> createSealer(/**/), Sealer#stringify(metadata, payload)
-//       -> createOpener(/**/), Opener#parse(token)
-//   + make standalone stringify and parse (new interfaces Sealer, Opener)
+//       -> createStringify(/**/), stringify(metadata, payload)
+//       -> createParse(/**/), parse(token)
+//   + make standalone stringify and parse
 //   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
 //   + revisit and polish all dependencies
 
@@ -104,7 +103,7 @@ export function createAuthenticator({
         ciphertext
       )}.${base64FromUint8Array(tag)}`;
     },
-    parse(token: string): Payload {
+    parse(token: string): { metadata: Metadata; payload: Payload } {
       if (!token) {
         return null;
       }
@@ -142,7 +141,7 @@ export function createAuthenticator({
       ) {
         return null;
       }
-      return payload;
+      return { metadata, payload };
     }
   };
 }

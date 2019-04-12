@@ -12,16 +12,16 @@
 
 ## TODOs
 
-* Refactor to accepting a header and payload; with the header containing the
+- Refactor to accepting a header and payload; with the header containing the
   `iss`, `aud`, `iat`, `kid`, `typ`, and `exp` claims and the nonce; making it the AAD
 
-* Catch `JSON.stringify` errors (and return null) in the `stringify` method
+- Catch `JSON.stringify` errors (and return null) in the `stringify` method
 
-* Decouple `stringify` and `parse` to standalone functions
+- Decouple `stringify` and `parse` to standalone functions
 
-* Enforce a max length on the ciphertext to prevent DoS attacks
+- Enforce a max length on the ciphertext to prevent DoS attacks
 
-  * `v8`'s string max length is `2^30 - 25`
+  - `v8`'s string max length is `2^30 - 25`
 
 ## Pending Features
 
@@ -29,28 +29,28 @@
 
 ## Pending Flaws, Security Considerations
 
-* How to mitigate DoS attacks that target `POLY1305`?
+- How to mitigate DoS attacks that target `POLY1305`?
 
-* `iss`, `aud`, `iat`, `kid`, `typ`, and `exp` claims required? Probably yes.
+- `iss`, `aud`, `iat`, `kid`, `typ`, and `exp` claims required? Probably yes.
 
-* `throw` or `null` if secret/public key lengths are not correct?
+- `throw` or `null` if secret/public key lengths are not correct?
 
-* Is indicating the token type through a plain magic number a security threat?
+- Is indicating the token type through a plain magic number a security threat?
 
-* Does returning null before execution of the entire function body reveal any
+- Does returning null before execution of the entire function body reveal any
   vulnerable information?
 
 ## Threat Mitigations
 
-* No [cryptographic agility](https://tools.ietf.org/html/rfc7518#section-8.1)
+- No [cryptographic agility](https://tools.ietf.org/html/rfc7518#section-8.1)
   available to developers
 
-* [AEAD](https://en.wikipedia.org/wiki/Authenticated_encryption) only
+- [AEAD](https://en.wikipedia.org/wiki/Authenticated_encryption) only
 
-* High-security scheme `AEAD_CHACHA20_POLY1305`
+- High-security scheme `AEAD_CHACHA20_POLY1305`
 
-  * [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
+  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
 
-  * No efficient cryptanalysis has been disclosed (reference date 2019-04-02)
+  - No efficient cryptanalysis has been disclosed (reference date 2019-04-02)
 
-* All `BWT`s expire - `exp` claim is required to be a finite number
+- All `BWT`s expire - `exp` claim is required to be a finite number
