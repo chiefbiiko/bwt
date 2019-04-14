@@ -48,10 +48,17 @@ function nextNonce(): Uint8Array {
 // TODO:
 //   + think about code usage patterns & whether caching the key in the factory
 //     makes sense
-//       -> createStringify(/**/), stringify(metadata, payload)
-//       -> createParse(/**/), parse(token)
+//       -> stringifier({
+//            ownSecretKey
+//            [, peerPublicKey] // { [kid]: { iss, pk } }
+//          }): stringify(metadata, payload[, peerPublicKey])
+//       -> parser({
+//            ownSecretKey
+//            peerPublicKeys // { [kidA]: { issA, pkA }, [kidB]: { issB, pkB } }
+//          }): parse(token)
 //   + make standalone stringify and parse
-//   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
+//   + interface PublicKeyMap
+//   + implement bwt key map feature
 //   + implement a better default nonce gen func
 //   + revisit and polish all dependencies
 
