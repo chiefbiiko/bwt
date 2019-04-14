@@ -52,8 +52,15 @@ function nextNonce(): Uint8Array {
   return enc.encode(String(Date.now()).slice(-12));
 }
 
+function cage(func) {
+  try {
+    return func();
+  } catch (_) {
+    return null;
+  }
+}
+
 // TODO:
-//   + make metadata and payload validation funcs
 //   + catch all JSON* and base64* errors
 //   + think about code usage patterns & whether caching the key in the factory
 //     makes sense
@@ -63,7 +70,7 @@ function nextNonce(): Uint8Array {
 //   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
 //   + revisit and polish all dependencies
 
-function validateMetadata(metadata: Metadata, checkExpiry: boolean = true): boolean {
+function isValidMetadata(metadata: Metadata, checkExpiry: boolean = true): boolean {
   return (
     metadata &&
     SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
@@ -78,10 +85,6 @@ function validateMetadata(metadata: Metadata, checkExpiry: boolean = true): bool
     metadata.exp >= 0 &&
     (checkExpiry ? metadata.exp > Date.now() : true)
   );
-}
-
-function validatePayload(payload: Payload): boolean {
-  return false;
 }
 
 export function createAuthenticator({
@@ -100,15 +103,20 @@ export function createAuthenticator({
   }
   return {
     stringify(metadata: Metadata, payload: Payload): string {
-      if (!payload || !validateMetadata(metadata, false)) {
+      if (!payload || !isValidMetadata(metadata, false)) {
         return null;
       }
       const nonce: Uint8Array = nextNonce();
-      const aad: Uint8Array = enc.encode(
-        JSON.stringify(
-          Object.assign({}, metadata, { nonce: Array.from(nonce) })
-        )
-      );
+      const aad: Uint8Array = cage(() => 
+        enc.encode(JSON.stringify(Object.assign({}, metadata, { nonce: Array.from(nonce) }))))
+      if (!aad) {
+        return null;
+      }
+      // const aad: Uint8Array = enc.encode(
+      //   // JSON.stringify(
+      //   //   Object.assign({}, metadata, { nonce: Array.from(nonce) })
+      //   // )
+      // );
       const plaintext: Uint8Array = enc.encode(JSON.stringify(payload));
       const { ciphertext, tag } = aeadChaCha20Poly1305Seal(
         key,
@@ -148,7 +156,7 @@ export function createAuthenticator({
       } catch (_) {
         return null;
       }
-      if (!payload || !validateMetadata(metadata, true)) {
+      if (!payload || !isValidMetadata(metadata, true)) {
         return null;
       }
       return { metadata, payload };
