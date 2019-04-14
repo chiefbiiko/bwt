@@ -23,7 +23,7 @@ export interface Payload {
 
 export interface Authenticator {
   stringify(metadata: Metadata, payload: Payload): string;
-  parse(token: string): Payload;
+  parse(token: string): { metadata: Metadata; payload: Payload };
 }
 
 export interface Curve25519Keys {
