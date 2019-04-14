@@ -56,7 +56,7 @@ function nextNonce(): Uint8Array {
 //   + revisit and polish all dependencies
 
 function isValidMetadata(
-  metadata: { [key: string]: any },
+  metadata: any,
   checkExpiry: boolean = true
 ): boolean {
   return (
