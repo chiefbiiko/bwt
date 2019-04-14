@@ -22,9 +22,30 @@ export interface Payload {
   [key: string]: unknown;
 }
 
+export interface Stringify {
+  (metadata: Metadata, payload: Payload, peerPublicKey?: PeerPublicKey): string;
+}
+
+export interface Parse {
+  (token: string): { metadata: Metadata; payload: Payload };
+}
+
+export interface PeerPublicKey {
+  kid: string;
+  publicKey: Uint8Array;
+  iss?: string;
+}
+
 export interface Authenticator {
-  stringify(metadata: Metadata, payload: Payload): string;
-  parse(token: string): { metadata: Metadata; payload: Payload };
+  stringify(
+    metadata: Metadata,
+    payload: Payload,
+    peerPublicKey?: PeerPublicKey
+  ): string;
+  parse(
+    token: string,
+    peerPublicKeys?: Set<PeerPublicKey>
+  ): { metadata: Metadata; payload: Payload };
 }
 
 export interface Curve25519Keys {
@@ -57,15 +78,12 @@ function nextNonce(): Uint8Array {
 //            peerPublicKeys // { [kidA]: { issA, pkA }, [kidB]: { issB, pkB } }
 //          }): parse(token)
 //   + make standalone stringify and parse
-//   + interface PublicKeyMap
+//   + interface PublicKeySet
 //   + implement bwt key map feature
 //   + implement a better default nonce gen func
 //   + revisit and polish all dependencies
 
-function isValidMetadata(
-  metadata: any,
-  checkExpiry: boolean = true
-): boolean {
+function isValidMetadata(metadata: any, checkExpiry: boolean = true): boolean {
   return (
     metadata &&
     SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
@@ -80,6 +98,68 @@ function isValidMetadata(
     metadata.exp >= 0 &&
     (checkExpiry ? metadata.exp > Date.now() : true)
   );
+}
+
+export function stringifier(
+  ownSecretKey: Uint8Array,
+  peerPublicKey?: PeerPublicKey
+): Stringify {
+  let sharedKey: Uint8Array;
+  if (
+    !ownSecretKey ||
+    ownSecretKey.length !== SECRET_KEY_BYTES ||
+    (peerPublicKey && peerPublicKey.publicKey.length !== PUBLIC_KEY_BYTES)
+  ) {
+    return null;
+  }
+  if (peerPublicKey) {
+    sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
+  }
+  return function stringify(
+    metadata: Metadata,
+    payload: Payload,
+    peerPublicKey?: PeerPublicKey
+  ): string {
+    if (peerPublicKey) {
+      sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
+    }
+    if (
+      !sharedKey ||
+      sharedKey.length !== SHARED_KEY_BYTES ||
+      !payload ||
+      !isValidMetadata(metadata, false)
+    ) {
+      return null;
+    }
+    let nonce: Uint8Array;
+    let metadataPlusNonce: { [key: string]: any };
+    let aad: Uint8Array;
+    let plaintext: Uint8Array;
+    let aead: { ciphertext: Uint8Array; tag: Uint8Array };
+    let head: string, body: string, tail: string;
+    try {
+      nonce = nextNonce();
+      metadataPlusNonce = Object.assign({}, metadata, {
+        nonce: Array.from(nonce)
+      });
+      aad = enc.encode(JSON.stringify(metadataPlusNonce));
+      plaintext = enc.encode(JSON.stringify(payload));
+      aead = aeadChaCha20Poly1305Seal(sharedKey, nonce, plaintext, aad);
+      head = base64FromUint8Array(aad);
+      body = base64FromUint8Array(aead.ciphertext);
+      tail = base64FromUint8Array(aead.tag);
+    } catch (_) {
+      return null;
+    }
+    return `${head}.${body}.${tail}`;
+  };
+}
+
+export function parser(
+  ownSecretKey: Uint8Array,
+  peerPublicKeys?: Set<PeerPublicKey>
+): Parse {
+  return null;
 }
 
 export function createAuthenticator({
@@ -118,10 +198,10 @@ export function createAuthenticator({
         head = base64FromUint8Array(aad);
         body = base64FromUint8Array(aead.ciphertext);
         tail = base64FromUint8Array(aead.tag);
-        return `${head}.${body}.${tail}`;
       } catch (_) {
         return null;
       }
+      return `${head}.${body}.${tail}`;
     },
     parse(token: string): { metadata: Metadata; payload: Payload } {
       let parts: string[];
