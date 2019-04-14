@@ -5,7 +5,8 @@ import {
 } from "https://denopkg.com/chiefbiiko/base64/mod.ts";
 import {
   seal as aeadChaCha20Poly1305Seal,
-  open as aeadChaCha20Poly1305Open
+  open as aeadChaCha20Poly1305Open,
+  NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
 
 export interface Metadata {
@@ -32,17 +33,16 @@ export interface Curve25519Keys {
 }
 
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv1"];
-
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
-const SHARED_KEY_BYTES: number = 32;
 
+const SHARED_KEY_BYTES: number = 32;
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
 
 function nextNonce(): Uint8Array {
-  return enc.encode(String(Date.now()).slice(-12));
+  return enc.encode(String(Date.now()).slice(-NONCE_BYTES));
 }
 
 // TODO:
