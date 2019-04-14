@@ -52,7 +52,7 @@ function nextNonce(): Uint8Array {
   return enc.encode(String(Date.now()).slice(-12));
 }
 
-function cage(func) {
+function cage(func: () => any): any {
   try {
     return func();
   } catch (_) {
@@ -70,7 +70,10 @@ function cage(func) {
 //   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
 //   + revisit and polish all dependencies
 
-function isValidMetadata(metadata: Metadata, checkExpiry: boolean = true): boolean {
+function isValidMetadata(
+  metadata: Metadata,
+  checkExpiry: boolean = true
+): boolean {
   return (
     metadata &&
     SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
@@ -103,30 +106,31 @@ export function createAuthenticator({
   }
   return {
     stringify(metadata: Metadata, payload: Payload): string {
-      if (!payload || !isValidMetadata(metadata, false)) {
-        return null;
-      }
+      if (!payload || !isValidMetadata(metadata, false)) return null;
       const nonce: Uint8Array = nextNonce();
-      const aad: Uint8Array = cage(() => 
-        enc.encode(JSON.stringify(Object.assign({}, metadata, { nonce: Array.from(nonce) }))))
-      if (!aad) {
-        return null;
-      }
-      // const aad: Uint8Array = enc.encode(
-      //   // JSON.stringify(
-      //   //   Object.assign({}, metadata, { nonce: Array.from(nonce) })
-      //   // )
-      // );
-      const plaintext: Uint8Array = enc.encode(JSON.stringify(payload));
+      if (nonce.length !== NONCE_BYTES) return null;
+      const wireData: {} = Object.assign({}, metadata, {
+        nonce: Array.from(nonce)
+      });
+      const aad: Uint8Array = cage(() => enc.encode(JSON.stringify(wireData)));
+      if (!aad) return null;
+      const plaintext: Uint8Array = cage(() =>
+        enc.encode(JSON.stringify(payload))
+      );
+      if (!plaintext) return null;
       const { ciphertext, tag } = aeadChaCha20Poly1305Seal(
         key,
         nonce,
         plaintext,
         aad
       );
-      return `${base64FromUint8Array(aad)}.${base64FromUint8Array(
-        ciphertext
-      )}.${base64FromUint8Array(tag)}`;
+      const head: string = cage(() => base64FromUint8Array(aad));
+      if (!head) return null;
+      const body: string = cage(() => base64FromUint8Array(ciphertext));
+      if (!body) return null;
+      const tail: string = cage(() => base64FromUint8Array(tag));
+      if (!tail) return null;
+      return `${head}.${body}.${tail}`;
     },
     parse(token: string): { metadata: Metadata; payload: Payload } {
       if (!token) {
