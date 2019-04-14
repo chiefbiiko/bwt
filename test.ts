@@ -15,7 +15,7 @@ import {
 function createMetadata(...sources: Object[]): Metadata {
   return Object.assign(
     {
-      typ: "BWT1",
+      typ: "BWTv1",
       iss: "chiefbiiko",
       aud: "nobody",
       kid: "chiefbiiko_public_key",

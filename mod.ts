@@ -15,7 +15,7 @@ export interface Metadata {
   typ: string;
   iss: string;
   aud: string;
-  kid: number | string;
+  kid: string;
   iat: number;
   exp: number;
 }
@@ -37,6 +37,8 @@ export interface Curve25519Keys {
   ownSecretKey: Uint8Array;
   peerPublicKey: Uint8Array;
 }
+
+export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv1"];
 
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
@@ -61,6 +63,27 @@ function nextNonce(): Uint8Array {
 //   + implement bwt key set feature: Set [{kid:"abc",pk:"xyz"},{/**/}]
 //   + revisit and polish all dependencies
 
+function validateMetadata(metadata: Metadata, checkExpiry: boolean = true): boolean {
+  return (
+    metadata &&
+    SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
+    metadata.iss.length &&
+    metadata.aud.length &&
+    metadata.kid.length &&
+    !Number.isNaN(metadata.iat) &&
+    Number.isFinite(metadata.iat) &&
+    metadata.iat >= 0 &&
+    !Number.isNaN(metadata.exp) &&
+    Number.isFinite(metadata.exp) &&
+    metadata.exp >= 0 &&
+    (checkExpiry ? metadata.exp > Date.now() : true)
+  );
+}
+
+function validatePayload(payload: Payload): boolean {
+  return false;
+}
+
 export function createAuthenticator({
   ownSecretKey,
   peerPublicKey
@@ -77,13 +100,7 @@ export function createAuthenticator({
   }
   return {
     stringify(metadata: Metadata, payload: Payload): string {
-      if (
-        !metadata ||
-        !payload ||
-        typeof metadata.exp !== "number" ||
-        Number.isNaN(metadata.exp) ||
-        !Number.isFinite(metadata.exp)
-      ) {
+      if (!payload || !validateMetadata(metadata, false)) {
         return null;
       }
       const nonce: Uint8Array = nextNonce();
@@ -131,14 +148,7 @@ export function createAuthenticator({
       } catch (_) {
         return null;
       }
-      if (
-        !metadata ||
-        !payload ||
-        typeof metadata.exp !== "number" ||
-        Number.isNaN(metadata.exp) ||
-        !Number.isFinite(metadata.exp) ||
-        Date.now() > metadata.exp
-      ) {
+      if (!payload || !validateMetadata(metadata, true)) {
         return null;
       }
       return { metadata, payload };
