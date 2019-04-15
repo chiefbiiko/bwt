@@ -27,30 +27,16 @@ export interface Stringify {
 }
 
 export interface Parse {
-  (token: string): { metadata: Metadata; payload: Payload };
+  (token: string, peerPublicKey?: PeerPublicKey): {
+    metadata: Metadata;
+    payload: Payload;
+  };
 }
 
 export interface PeerPublicKey {
   kid: string;
   publicKey: Uint8Array;
   iss?: string;
-}
-
-export interface Authenticator {
-  stringify(
-    metadata: Metadata,
-    payload: Payload,
-    peerPublicKey?: PeerPublicKey
-  ): string;
-  parse(
-    token: string,
-    peerPublicKeys?: Set<PeerPublicKey>
-  ): { metadata: Metadata; payload: Payload };
-}
-
-export interface Curve25519Keys {
-  ownSecretKey: Uint8Array;
-  peerPublicKey: Uint8Array;
 }
 
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv1"];
@@ -67,21 +53,19 @@ function nextNonce(): Uint8Array {
 }
 
 // TODO:
-//   + think about code usage patterns & whether caching the key in the factory
-//     makes sense
-//       -> stringifier({
-//            ownSecretKey
-//            [, peerPublicKey] // { [kid]: { iss, pk } }
-//          }): stringify(metadata, payload[, peerPublicKey])
-//       -> parser({
-//            ownSecretKey
-//            peerPublicKeys // { [kidA]: { issA, pkA }, [kidB]: { issB, pkB } }
-//          }): parse(token)
-//   + make standalone stringify and parse
-//   + interface PublicKeySet
-//   + implement bwt key map feature
 //   + implement a better default nonce gen func
 //   + revisit and polish all dependencies
+
+function findPeerPublicKey(
+  peerPublicKeys: PeerPublicKey[],
+  kid: string
+): PeerPublicKey {
+  return (
+    peerPublicKeys.find(
+      (peerPublicKey: PeerPublicKey) => peerPublicKey.kid === kid
+    ) || null
+  );
+}
 
 function isValidMetadata(metadata: any, checkExpiry: boolean = true): boolean {
   return (
@@ -100,6 +84,23 @@ function isValidMetadata(metadata: any, checkExpiry: boolean = true): boolean {
   );
 }
 
+function isValidPeerPublicKey(peerPublicKey: PeerPublicKey): boolean {
+  return (
+    peerPublicKey &&
+    peerPublicKey.kid.length &&
+    peerPublicKey.publicKey instanceof Uint8Array &&
+    peerPublicKey.publicKey.length === PUBLIC_KEY_BYTES
+  );
+}
+
+function isValidAudience(aud: string): boolean {
+  return !!aud;
+}
+
+function isValidToken(token: string): boolean {
+  return !!token; // enforce some plausible min length
+}
+
 export function stringifier(
   ownSecretKey: Uint8Array,
   peerPublicKey?: PeerPublicKey
@@ -108,11 +109,10 @@ export function stringifier(
   if (
     !ownSecretKey ||
     ownSecretKey.length !== SECRET_KEY_BYTES ||
-    (peerPublicKey && peerPublicKey.publicKey.length !== PUBLIC_KEY_BYTES)
+    (peerPublicKey && !isValidPeerPublicKey(peerPublicKey))
   ) {
     return null;
-  }
-  if (peerPublicKey) {
+  } else if (peerPublicKey) {
     sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
   }
   return function stringify(
@@ -120,7 +120,9 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (peerPublicKey) {
+    if (peerPublicKey && !isValidPeerPublicKey(peerPublicKey)) {
+      return null;
+    } else if (peerPublicKey) {
       sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
     }
     if (
@@ -156,83 +158,74 @@ export function stringifier(
 }
 
 export function parser(
+  aud: string,
   ownSecretKey: Uint8Array,
-  peerPublicKeys?: Set<PeerPublicKey>
+  ...cachedPeerPublicKeys: PeerPublicKey[]
 ): Parse {
-  return null;
-}
-
-export function createAuthenticator({
-  ownSecretKey,
-  peerPublicKey
-}: Curve25519Keys): Authenticator {
+  let sharedKey: Uint8Array;
   if (
+    !isValidAudience(aud) ||
+    !ownSecretKey ||
     ownSecretKey.length !== SECRET_KEY_BYTES ||
-    peerPublicKey.length !== PUBLIC_KEY_BYTES
+    !cachedPeerPublicKeys.every(isValidPeerPublicKey)
   ) {
     return null;
   }
-  const key: Uint8Array = CURVE25519.scalarMult(ownSecretKey, peerPublicKey);
-  if (key.length !== SHARED_KEY_BYTES) {
-    return null;
-  }
-  return {
-    stringify(metadata: Metadata, payload: Payload): string {
-      if (!payload || !isValidMetadata(metadata, false)) {
-        return null;
-      }
-      let nonce: Uint8Array;
-      let metadataPlusNonce: { [key: string]: any };
-      let aad: Uint8Array;
-      let plaintext: Uint8Array;
-      let aead: { ciphertext: Uint8Array; tag: Uint8Array };
-      let head: string, body: string, tail: string;
-      try {
-        nonce = nextNonce();
-        metadataPlusNonce = Object.assign({}, metadata, {
-          nonce: Array.from(nonce)
-        });
-        aad = enc.encode(JSON.stringify(metadataPlusNonce));
-        plaintext = enc.encode(JSON.stringify(payload));
-        aead = aeadChaCha20Poly1305Seal(key, nonce, plaintext, aad);
-        head = base64FromUint8Array(aad);
-        body = base64FromUint8Array(aead.ciphertext);
-        tail = base64FromUint8Array(aead.tag);
-      } catch (_) {
-        return null;
-      }
-      return `${head}.${body}.${tail}`;
-    },
-    parse(token: string): { metadata: Metadata; payload: Payload } {
-      let parts: string[];
-      let aad: Uint8Array;
-      let metadataPlusNonce: { [key: string]: any };
-      let ciphertext: Uint8Array;
-      let tag: Uint8Array;
-      let plaintext: Uint8Array;
-      let payload: Payload;
-      try {
-        parts = token.split(".");
-        aad = base64ToUint8Array(parts[0]);
-        metadataPlusNonce = JSON.parse(dec.decode(aad));
-        ciphertext = base64ToUint8Array(parts[1]);
-        tag = base64ToUint8Array(parts[2]);
-        plaintext = aeadChaCha20Poly1305Open(
-          key,
-          Uint8Array.from(metadataPlusNonce.nonce),
-          ciphertext,
-          aad,
-          tag
-        );
-        payload = JSON.parse(dec.decode(plaintext));
-      } catch (_) {
-        return null;
-      }
-      if (!payload || !isValidMetadata(metadataPlusNonce, true)) {
-        return null;
-      }
-      metadataPlusNonce.nonce = undefined;
-      return { metadata: metadataPlusNonce as Metadata, payload };
+  return function parse(
+    token: string,
+    ...peerPublicKeys: PeerPublicKey[]
+  ): { metadata: Metadata; payload: Payload } {
+    let peerPublicKeySet: PeerPublicKey[];
+    if (
+      !isValidToken(token) ||
+      (peerPublicKeys && !peerPublicKeys.every(isValidPeerPublicKey))
+    ) {
+      return null;
+    } else if (peerPublicKeys.length) {
+      peerPublicKeySet = peerPublicKeys;
+    } else if (cachedPeerPublicKeys.length) {
+      peerPublicKeySet = cachedPeerPublicKeys;
+    } else {
+      return null;
     }
+    let peerPublicKey: PeerPublicKey;
+    let parts: string[];
+    let aad: Uint8Array;
+    let metadataPlusNonce: { [key: string]: any };
+    let ciphertext: Uint8Array;
+    let tag: Uint8Array;
+    let plaintext: Uint8Array;
+    let payload: Payload;
+    try {
+      parts = token.split(".");
+      aad = base64ToUint8Array(parts[0]);
+      metadataPlusNonce = JSON.parse(dec.decode(aad));
+      peerPublicKey = findPeerPublicKey(
+        peerPublicKeySet,
+        metadataPlusNonce.kid
+      );
+      sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
+      ciphertext = base64ToUint8Array(parts[1]);
+      tag = base64ToUint8Array(parts[2]);
+      plaintext = aeadChaCha20Poly1305Open(
+        sharedKey,
+        Uint8Array.from(metadataPlusNonce.nonce),
+        ciphertext,
+        aad,
+        tag
+      );
+      payload = JSON.parse(dec.decode(plaintext));
+    } catch (_) {
+      return null;
+    }
+    if (
+      !payload ||
+      !isValidMetadata(metadataPlusNonce, true) ||
+      metadataPlusNonce.aud !== aud
+    ) {
+      return null;
+    }
+    delete metadataPlusNonce.nonce;
+    return { metadata: metadataPlusNonce as Metadata, payload };
   };
 }
