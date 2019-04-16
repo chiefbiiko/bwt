@@ -22,15 +22,17 @@ export interface Payload {
   [key: string]: unknown;
 }
 
+export interface Contents {
+  metadata: Metadata;
+  payload: Payload;
+}
+
 export interface Stringify {
   (metadata: Metadata, payload: Payload, peerPublicKey?: PeerPublicKey): string;
 }
 
 export interface Parse {
-  (token: string, peerPublicKey?: PeerPublicKey): {
-    metadata: Metadata;
-    payload: Payload;
-  };
+  (token: string, peerPublicKey?: PeerPublicKey): Contents;
 }
 
 export interface PeerPublicKey {
@@ -39,7 +41,7 @@ export interface PeerPublicKey {
   iss?: string;
 }
 
-export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv1"];
+export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
@@ -48,13 +50,12 @@ const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
 
-function nextNonce(): Uint8Array {
-  return enc.encode(String(Date.now()).slice(-NONCE_BYTES));
+function* createNonceGenerator(): Generator {
+  let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
+  while (true) {
+    yield enc.encode(String(++base));
+  }
 }
-
-// TODO:
-//   + implement a better default nonce gen func
-//   + revisit and polish all dependencies
 
 function findPeerPublicKey(
   peerPublicKeys: PeerPublicKey[],
@@ -115,6 +116,7 @@ export function stringifier(
   } else if (peerPublicKey) {
     sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
   }
+  const nonceGenerator: Generator = createNonceGenerator();
   return function stringify(
     metadata: Metadata,
     payload: Payload,
@@ -140,7 +142,7 @@ export function stringifier(
     let aead: { ciphertext: Uint8Array; tag: Uint8Array };
     let head: string, body: string, tail: string;
     try {
-      nonce = nextNonce();
+      nonce = nonceGenerator.next().value;
       metadataPlusNonce = Object.assign({}, metadata, {
         nonce: Array.from(nonce)
       });
@@ -174,7 +176,7 @@ export function parser(
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
-  ): { metadata: Metadata; payload: Payload } {
+  ): Contents {
     let peerPublicKeySet: PeerPublicKey[];
     if (
       !isValidToken(token) ||
