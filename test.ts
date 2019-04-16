@@ -172,27 +172,6 @@ test(function bwtParseWithParticularPublicKey(): void {
   b.parse = backup;
 });
 
-test(function bwtParseNullsIfKidIsUnknown(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "anita",
-    kid: "anita_public_key"
-  });
-  const token: string = a.stringify(inputMetadata, createPayload());
-  const parsed = b.parse(token);
-  assertEquals(parsed, null);
-});
-
-test(function bwtParseNullsIfAudDoesNotMatch(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    aud: "anonymous",
-    iss: "alice",
-    kid: "alice_public_key"
-  });
-  const token: string = a.stringify(inputMetadata, createPayload());
-  const parsed = b.parse(token);
-  assertEquals(parsed, null);
-});
-
 test(function bwtStringifyNullsIfMetadataIsNull(): void {
   assertEquals(a.stringify(null, createPayload()), null);
 });
@@ -203,6 +182,106 @@ test(function bwtStringifyNullsIfPayloadIsNull(): void {
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, null), null);
+});
+
+test(function bwtStringifyNullsIfVersionIsUnsupported(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    typ: "BWTv419",
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtParseNullsIfKeyIdentifierIsUnknown(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iss: "anita",
+    kid: "anita_public_key"
+  });
+  const token: string = a.stringify(inputMetadata, createPayload());
+  const parsed = b.parse(token);
+  assertEquals(parsed, null);
+});
+
+test(function bwtParseNullsIfAudienceDoesNotMatch(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    aud: "anonymous",
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  const token: string = a.stringify(inputMetadata, createPayload());
+  const parsed = b.parse(token);
+  assertEquals(parsed, null);
+});
+
+test(function bwtStringifyNullsIfKeyIdentifierIsFalsy(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iss: "alice",
+    kid: ""
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfIssuerIsFalsy(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iss: "",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfAudienceIsFalsy(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    aud: "",
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfIssuedAtIsNegative(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iat: -1,
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfIssuedAtIsNaN(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iat: NaN,
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfIssuedAtIsInfinity(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iat: Infinity,
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfIssuedAtIsNull(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    iat: null,
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
+test(function bwtStringifyNullsIfExpiryIsNegative(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    exp: -1,
+    iss: "alice",
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
 });
 
 test(function bwtStringifyNullsIfExpiryIsNaN(): void {
