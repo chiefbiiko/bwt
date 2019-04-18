@@ -12,7 +12,7 @@
 
 ## TODOs
 
-- toss `aud` and `iss`!
+- toss `aud`! (keep `iss` 4 human readable id)
 
 - cache computed shared secrets in the factory
 
