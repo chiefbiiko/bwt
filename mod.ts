@@ -113,6 +113,7 @@ export function stringifier(
   ownSecretKey: Uint8Array,
   peerPublicKey?: PeerPublicKey
 ): Stringify {
+  const nonceGenerator: Generator = createNonceGenerator();
   let sharedKey: Uint8Array;
   if (
     !ownSecretKey ||
@@ -123,7 +124,6 @@ export function stringifier(
   } else if (peerPublicKey) {
     sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
   }
-  const nonceGenerator: Generator = createNonceGenerator();
   return function stringify(
     metadata: Metadata,
     payload: Payload,

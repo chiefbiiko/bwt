@@ -12,12 +12,9 @@
 
 ## TODOs
 
-- Enforce a max length on the ciphertext (payload) to prevent DoS attacks
+- toss `aud` and `iss`!
 
-  - `v8`'s string max length is `2^30 - 25`
-
-- Also make validation of the metadata more strict by capping all string lengths
- and numbers to minimize DoS attack vectors
+- cache computed shared secrets in the factory
 
 ## Pending Flaws, Security Considerations
 
