@@ -52,9 +52,16 @@ const dec: TextDecoder = new TextDecoder();
 
 function* createNonceGenerator(): Generator {
   let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
-  while (true) {
+  for (;;) {
     yield enc.encode(String(++base));
   }
+}
+
+function assembleMetadataPlusNonce(
+  metadata: Metadata,
+  nonce: Uint8Array
+): { [key: string]: any } {
+  return Object.assign({}, metadata, { nonce: Array.from(nonce) });
 }
 
 function findPeerPublicKey(
@@ -99,7 +106,7 @@ function isValidAudience(aud: string): boolean {
 }
 
 function isValidToken(token: string): boolean {
-  return !!token; // enforce some plausible min length
+  return token && token.length < 4096; // enforce some plausible min length
 }
 
 export function stringifier(
@@ -140,22 +147,26 @@ export function stringifier(
     let aad: Uint8Array;
     let plaintext: Uint8Array;
     let aead: { ciphertext: Uint8Array; tag: Uint8Array };
-    let head: string, body: string, tail: string;
+    let token: string;
     try {
       nonce = nonceGenerator.next().value;
-      metadataPlusNonce = Object.assign({}, metadata, {
-        nonce: Array.from(nonce)
-      });
+      metadataPlusNonce = assembleMetadataPlusNonce(metadata, nonce);
       aad = enc.encode(JSON.stringify(metadataPlusNonce));
       plaintext = enc.encode(JSON.stringify(payload));
       aead = aeadChaCha20Poly1305Seal(sharedKey, nonce, plaintext, aad);
-      head = base64FromUint8Array(aad);
-      body = base64FromUint8Array(aead.ciphertext);
-      tail = base64FromUint8Array(aead.tag);
+      token =
+        base64FromUint8Array(aad) +
+        "." +
+        base64FromUint8Array(aead.ciphertext) +
+        "." +
+        base64FromUint8Array(aead.tag);
     } catch (_) {
       return null;
     }
-    return `${head}.${body}.${tail}`;
+    if (!isValidToken(token)) {
+      return null;
+    }
+    return token;
   };
 }
 
