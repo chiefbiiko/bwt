@@ -12,19 +12,15 @@
 
 ## TODOs
 
-- toss `aud`! (keep `iss` 4 human readable id)
+- toss `aud` and `iss`! (Rename `PeerPublicKey.iss?` => `PeerPublicKey.issuer?` bc no need 2 shortn it bc its not sent thru the wire no more)
 
-- cache computed shared secrets in the factory
+- cache computed shared secrets in the factory in a `Map<kid,sharedSecret>`
 
 ## Pending Flaws, Security Considerations
 
-- How to mitigate DoS attacks that target `POLY1305`?
+- How to mitigate DoS attacks that target `POLY1305`? -> overall size cap, done
 
-- Does having these in the plain AAD (`iss`, `aud`, `iat`, `kid`, `typ`, and 
-  `exp` claims) lead to any vulnerabilities?
-
-- Does returning null before execution of the entire function body reveal any
-  vulnerable information?
+- Does having these in the plain AAD (`iat`, `kid`, `typ`, and `exp` claims) lead to any vulnerabilities?
 
 ## Threat Mitigations
 
