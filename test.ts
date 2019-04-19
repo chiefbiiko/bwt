@@ -2,8 +2,8 @@ import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
-  toUint8Array as base64ToUint8Array,
-  fromUint8Array as base64FromUint8Array
+  toUint8Array,
+  fromUint8Array
 } from "https://denopkg.com/chiefbiiko/base64/mod.ts";
 import * as BWT from "./mod.ts";
 
@@ -11,8 +11,6 @@ function createMetadata(...sources: Object[]): BWT.Metadata {
   return Object.assign(
     {
       typ: "BWTv0",
-      iss: "",
-      aud: "bob",
       kid: "",
       iat: Date.now(),
       exp: Date.now() + 419
@@ -81,7 +79,6 @@ c.stringify = BWT.stringifier(c.sk, {
 });
 
 b.parse = BWT.parser(
-  "bob",
   b.sk,
   {
     kid: "alice_public_key",
@@ -95,7 +92,6 @@ b.parse = BWT.parser(
 
 test(function bwtAliceAndBob(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
@@ -107,11 +103,9 @@ test(function bwtAliceAndBob(): void {
 
 test(function bwtParseFromMultipleIssuers(): void {
   const aliceInputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const chiefbiikoInputMetadata: BWT.Metadata = createMetadata({
-    iss: "chiefbiiko",
     kid: "chiefbiiko_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
@@ -136,7 +130,6 @@ test(function bwtStringifyWithParticularPublicKey(): void {
     publicKey: new Uint8Array(BWT.PUBLIC_KEY_BYTES)
   });
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
@@ -153,12 +146,11 @@ test(function bwtStringifyWithParticularPublicKey(): void {
 test(function bwtParseWithParticularPublicKey(): void {
   // resetting bob's parse to actually have a different public key cached
   const backup: BWT.Parse = b.parse;
-  b.parse = BWT.parser("bob", b.sk, {
+  b.parse = BWT.parser(b.sk, {
     kid: "anita_public_key",
     publicKey: new Uint8Array(BWT.PUBLIC_KEY_BYTES)
   });
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
@@ -178,7 +170,6 @@ test(function bwtStringifyNullsIfMetadataIsNull(): void {
 
 test(function bwtStringifyNullsIfPayloadIsNull(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, null), null);
@@ -187,7 +178,6 @@ test(function bwtStringifyNullsIfPayloadIsNull(): void {
 test(function bwtStringifyNullsIfVersionIsUnsupported(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     typ: "BWTv419",
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -195,19 +185,7 @@ test(function bwtStringifyNullsIfVersionIsUnsupported(): void {
 
 test(function bwtParseNullsIfKeyIdentifierIsUnknown(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "anita",
     kid: "anita_public_key"
-  });
-  const token: string = a.stringify(inputMetadata, createPayload());
-  const parsed = b.parse(token);
-  assertEquals(parsed, null);
-});
-
-test(function bwtParseNullsIfAudienceDoesNotMatch(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    aud: "anonymous",
-    iss: "alice",
-    kid: "alice_public_key"
   });
   const token: string = a.stringify(inputMetadata, createPayload());
   const parsed = b.parse(token);
@@ -216,25 +194,7 @@ test(function bwtParseNullsIfAudienceDoesNotMatch(): void {
 
 test(function bwtStringifyNullsIfKeyIdentifierIsFalsy(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: ""
-  });
-  assertEquals(a.stringify(inputMetadata, createPayload()), null);
-});
-
-test(function bwtStringifyNullsIfIssuerIsFalsy(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "",
-    kid: "alice_public_key"
-  });
-  assertEquals(a.stringify(inputMetadata, createPayload()), null);
-});
-
-test(function bwtStringifyNullsIfAudienceIsFalsy(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    aud: "",
-    iss: "alice",
-    kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
 });
@@ -242,7 +202,6 @@ test(function bwtStringifyNullsIfAudienceIsFalsy(): void {
 test(function bwtStringifyNullsIfIssuedAtIsNegative(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     iat: -1,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -251,7 +210,6 @@ test(function bwtStringifyNullsIfIssuedAtIsNegative(): void {
 test(function bwtStringifyNullsIfIssuedAtIsNaN(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     iat: NaN,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -260,7 +218,6 @@ test(function bwtStringifyNullsIfIssuedAtIsNaN(): void {
 test(function bwtStringifyNullsIfIssuedAtIsInfinity(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     iat: Infinity,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -269,7 +226,6 @@ test(function bwtStringifyNullsIfIssuedAtIsInfinity(): void {
 test(function bwtStringifyNullsIfIssuedAtIsNull(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     iat: null,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -278,7 +234,6 @@ test(function bwtStringifyNullsIfIssuedAtIsNull(): void {
 test(function bwtStringifyNullsIfExpiryIsNegative(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: -1,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -287,7 +242,6 @@ test(function bwtStringifyNullsIfExpiryIsNegative(): void {
 test(function bwtStringifyNullsIfExpiryIsNaN(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: NaN,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -296,7 +250,6 @@ test(function bwtStringifyNullsIfExpiryIsNaN(): void {
 test(function bwtStringifyNullsIfExpiryIsInfinity(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: Infinity,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -305,7 +258,6 @@ test(function bwtStringifyNullsIfExpiryIsInfinity(): void {
 test(function bwtStringifyNullsIfExpiryIsNull(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: null,
-    iss: "alice",
     kid: "alice_public_key"
   });
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
@@ -313,47 +265,44 @@ test(function bwtStringifyNullsIfExpiryIsNull(): void {
 
 test(function bwtParseNullsIfNonceIsCorrupt(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
   let token: string = a.stringify(inputMetadata, inputPayload);
   const parts: string[] = token.split(".");
   const metadata: { [key: string]: number | string } = JSON.parse(
-    dec.decode(base64ToUint8Array(parts[0]))
+    dec.decode(toUint8Array(parts[0]))
   );
   metadata.nonce[0] ^= 0x99;
-  parts[0] = base64FromUint8Array(enc.encode(JSON.stringify(metadata)));
+  parts[0] = fromUint8Array(enc.encode(JSON.stringify(metadata)));
   token = parts.join(".");
   assertEquals(b.parse(token), null);
 });
 
 test(function bwtParseNullsIfTagIsCorrupt(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
   let token: string = a.stringify(inputMetadata, inputPayload);
   const parts: string[] = token.split(".");
-  let corruptTag: Uint8Array = base64ToUint8Array(parts[2]);
+  let corruptTag: Uint8Array = toUint8Array(parts[2]);
   corruptTag[0] ^= 0x99;
-  parts[2] = base64FromUint8Array(corruptTag);
+  parts[2] = fromUint8Array(corruptTag);
   token = parts.join(".");
   assertEquals(b.parse(token), null);
 });
 
 test(function bwtParseNullsIfCiphertextIsCorrupt(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
-    iss: "alice",
     kid: "alice_public_key"
   });
   const inputPayload: BWT.Payload = createPayload();
   let token: string = a.stringify(inputMetadata, inputPayload);
   const parts: string[] = token.split(".");
-  let corruptCiphertext: Uint8Array = base64ToUint8Array(parts[1]);
+  let corruptCiphertext: Uint8Array = toUint8Array(parts[1]);
   corruptCiphertext[0] ^= 0x99;
-  parts[1] = base64FromUint8Array(corruptCiphertext);
+  parts[1] = fromUint8Array(corruptCiphertext);
   token = parts.join(".");
   assertEquals(b.parse(token), null);
 });
@@ -361,7 +310,6 @@ test(function bwtParseNullsIfCiphertextIsCorrupt(): void {
 test(function bwtParseNullsIfExpired(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: Date.now() - 1,
-    iss: "alice",
     kid: "alice_public_key"
   });
   let token: string = a.stringify(inputMetadata, createPayload());

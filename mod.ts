@@ -1,18 +1,16 @@
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
-  toUint8Array as base64ToUint8Array,
-  fromUint8Array as base64FromUint8Array
+  toUint8Array,
+  fromUint8Array
 } from "https://denopkg.com/chiefbiiko/base64/mod.ts";
 import {
-  seal as aeadChaCha20Poly1305Seal,
-  open as aeadChaCha20Poly1305Open,
+  seal,
+  open,
   NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
 
 export interface Metadata {
   typ: string;
-  iss: string;
-  aud: string;
   kid: string;
   iat: number;
   exp: number;
@@ -57,7 +55,7 @@ function* createNonceGenerator(): Generator {
   }
 }
 
-function assembleMetadataPlusNonce(
+function assembleMetadataAndNonce(
   metadata: Metadata,
   nonce: Uint8Array
 ): { [key: string]: any } {
@@ -79,8 +77,6 @@ function isValidMetadata(metadata: any, checkExpiry: boolean = true): boolean {
   return (
     metadata &&
     SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
-    metadata.iss.length &&
-    metadata.aud.length &&
     metadata.kid.length &&
     !Number.isNaN(metadata.iat) &&
     Number.isFinite(metadata.iat) &&
@@ -107,6 +103,20 @@ function isValidAudience(aud: string): boolean {
 
 function isValidToken(token: string): boolean {
   return token && token.length < 4096; // enforce some plausible min length
+}
+
+function assembleToken(
+  aad: Uint8Array,
+  ciphertext: Uint8Array,
+  tag: Uint8Array
+): string {
+  return (
+    fromUint8Array(aad) +
+    "." +
+    fromUint8Array(ciphertext) +
+    "." +
+    fromUint8Array(tag)
+  );
 }
 
 export function stringifier(
@@ -143,23 +153,18 @@ export function stringifier(
       return null;
     }
     let nonce: Uint8Array;
-    let metadataPlusNonce: { [key: string]: any };
+    let metadataAndNonce: { [key: string]: any };
     let aad: Uint8Array;
     let plaintext: Uint8Array;
-    let aead: { ciphertext: Uint8Array; tag: Uint8Array };
+    let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
     let token: string;
     try {
       nonce = nonceGenerator.next().value;
-      metadataPlusNonce = assembleMetadataPlusNonce(metadata, nonce);
-      aad = enc.encode(JSON.stringify(metadataPlusNonce));
+      metadataAndNonce = assembleMetadataAndNonce(metadata, nonce);
+      aad = enc.encode(JSON.stringify(metadataAndNonce));
       plaintext = enc.encode(JSON.stringify(payload));
-      aead = aeadChaCha20Poly1305Seal(sharedKey, nonce, plaintext, aad);
-      token =
-        base64FromUint8Array(aad) +
-        "." +
-        base64FromUint8Array(aead.ciphertext) +
-        "." +
-        base64FromUint8Array(aead.tag);
+      sealed = seal(sharedKey, nonce, plaintext, aad);
+      token = assembleToken(aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
       return null;
     }
@@ -171,16 +176,14 @@ export function stringifier(
 }
 
 export function parser(
-  aud: string,
   ownSecretKey: Uint8Array,
-  ...cachedPeerPublicKeys: PeerPublicKey[]
+  ...factoryPeerPublicKeys: PeerPublicKey[]
 ): Parse {
   let sharedKey: Uint8Array;
   if (
-    !isValidAudience(aud) ||
     !ownSecretKey ||
     ownSecretKey.length !== SECRET_KEY_BYTES ||
-    !cachedPeerPublicKeys.every(isValidPeerPublicKey)
+    !factoryPeerPublicKeys.every(isValidPeerPublicKey)
   ) {
     return null;
   }
@@ -196,49 +199,38 @@ export function parser(
       return null;
     } else if (peerPublicKeys.length) {
       peerPublicKeySet = peerPublicKeys;
-    } else if (cachedPeerPublicKeys.length) {
-      peerPublicKeySet = cachedPeerPublicKeys;
+    } else if (factoryPeerPublicKeys.length) {
+      peerPublicKeySet = factoryPeerPublicKeys;
     } else {
       return null;
     }
     let peerPublicKey: PeerPublicKey;
     let parts: string[];
     let aad: Uint8Array;
-    let metadataPlusNonce: { [key: string]: any };
+    let metadataAndNonce: { [key: string]: any };
+    let nonce: Uint8Array;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
     let plaintext: Uint8Array;
     let payload: Payload;
     try {
       parts = token.split(".");
-      aad = base64ToUint8Array(parts[0]);
-      metadataPlusNonce = JSON.parse(dec.decode(aad));
-      peerPublicKey = findPeerPublicKey(
-        peerPublicKeySet,
-        metadataPlusNonce.kid
-      );
+      aad = toUint8Array(parts[0]);
+      metadataAndNonce = JSON.parse(dec.decode(aad));
+      nonce = Uint8Array.from(metadataAndNonce.nonce);
+      peerPublicKey = findPeerPublicKey(peerPublicKeySet, metadataAndNonce.kid);
       sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
-      ciphertext = base64ToUint8Array(parts[1]);
-      tag = base64ToUint8Array(parts[2]);
-      plaintext = aeadChaCha20Poly1305Open(
-        sharedKey,
-        Uint8Array.from(metadataPlusNonce.nonce),
-        ciphertext,
-        aad,
-        tag
-      );
+      ciphertext = toUint8Array(parts[1]);
+      tag = toUint8Array(parts[2]);
+      plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
       payload = JSON.parse(dec.decode(plaintext));
     } catch (_) {
       return null;
     }
-    if (
-      !payload ||
-      !isValidMetadata(metadataPlusNonce, true) ||
-      metadataPlusNonce.aud !== aud
-    ) {
+    if (!payload || !isValidMetadata(metadataAndNonce, true)) {
       return null;
     }
-    delete metadataPlusNonce.nonce;
-    return { metadata: metadataPlusNonce as Metadata, payload };
+    delete metadataAndNonce.nonce;
+    return { metadata: metadataAndNonce as Metadata, payload };
   };
 }

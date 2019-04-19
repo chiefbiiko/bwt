@@ -12,8 +12,6 @@
 
 ## TODOs
 
-- toss `aud` and `iss`! (Rename `PeerPublicKey.iss?` => `PeerPublicKey.issuer?` bc no need 2 shortn it bc its not sent thru the wire no more)
-
 - cache computed shared secrets in the factory in a `Map<kid,sharedSecret>`
 
 ## Pending Flaws, Security Considerations
