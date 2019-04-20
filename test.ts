@@ -231,6 +231,14 @@ test(function bwtStringifyNullsIfIssuedAtIsNull(): void {
   assertEquals(a.stringify(inputMetadata, createPayload()), null);
 });
 
+test(function bwtStringifyNullsIfExpiryIsDue(): void {
+  const inputMetadata: BWT.Metadata = createMetadata({
+    exp: Date.now() - 1,
+    kid: "alice_public_key"
+  });
+  assertEquals(a.stringify(inputMetadata, createPayload()), null);
+});
+
 test(function bwtStringifyNullsIfExpiryIsNegative(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
     exp: -1,
@@ -304,15 +312,6 @@ test(function bwtParseNullsIfCiphertextIsCorrupt(): void {
   corruptCiphertext[0] ^= 0x99;
   parts[1] = fromUint8Array(corruptCiphertext);
   token = parts.join(".");
-  assertEquals(b.parse(token), null);
-});
-
-test(function bwtParseNullsIfExpired(): void {
-  const inputMetadata: BWT.Metadata = createMetadata({
-    exp: Date.now() - 1,
-    kid: "alice_public_key"
-  });
-  let token: string = a.stringify(inputMetadata, createPayload());
   assertEquals(b.parse(token), null);
 });
 

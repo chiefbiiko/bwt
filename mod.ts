@@ -48,6 +48,8 @@ const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
 
+// TODO: convert internal peer public keys to map in parse factory
+
 function* createNonceGenerator(): Generator {
   let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
   for (;;) {
@@ -62,49 +64,6 @@ function assembleMetadataAndNonce(
   return Object.assign({}, metadata, { nonce: Array.from(nonce) });
 }
 
-function findPeerPublicKey(
-  peerPublicKeys: PeerPublicKey[],
-  kid: string
-): PeerPublicKey {
-  return (
-    peerPublicKeys.find(
-      (peerPublicKey: PeerPublicKey) => peerPublicKey.kid === kid
-    ) || null
-  );
-}
-
-function isValidMetadata(metadata: any, checkExpiry: boolean = true): boolean {
-  return (
-    metadata &&
-    SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
-    metadata.kid.length &&
-    !Number.isNaN(metadata.iat) &&
-    Number.isFinite(metadata.iat) &&
-    metadata.iat >= 0 &&
-    !Number.isNaN(metadata.exp) &&
-    Number.isFinite(metadata.exp) &&
-    metadata.exp >= 0 &&
-    (checkExpiry ? metadata.exp > Date.now() : true)
-  );
-}
-
-function isValidPeerPublicKey(peerPublicKey: PeerPublicKey): boolean {
-  return (
-    peerPublicKey &&
-    peerPublicKey.kid.length &&
-    peerPublicKey.publicKey instanceof Uint8Array &&
-    peerPublicKey.publicKey.length === PUBLIC_KEY_BYTES
-  );
-}
-
-function isValidAudience(aud: string): boolean {
-  return !!aud;
-}
-
-function isValidToken(token: string): boolean {
-  return token && token.length < 4096; // enforce some plausible min length
-}
-
 function assembleToken(
   aad: Uint8Array,
   ciphertext: Uint8Array,
@@ -117,6 +76,54 @@ function assembleToken(
     "." +
     fromUint8Array(tag)
   );
+}
+
+function isValidMetadata(metadata: any): boolean {
+  const now: number = Date.now();
+  return (
+    metadata &&
+    SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
+    metadata.kid.length &&
+    metadata.iat >= 0 &&
+    !Number.isNaN(metadata.iat) &&
+    Number.isFinite(metadata.iat) &&
+    metadata.iat <= now &&
+    metadata.exp >= 0 &&
+    !Number.isNaN(metadata.exp) &&
+    Number.isFinite(metadata.exp) &&
+    metadata.exp > now
+  );
+}
+
+function isValidPeerPublicKey(peerPublicKey: PeerPublicKey): boolean {
+  return (
+    peerPublicKey &&
+    peerPublicKey.kid.length &&
+    peerPublicKey.publicKey.length === PUBLIC_KEY_BYTES
+  );
+}
+
+function isValidToken(token: string): boolean {
+  return token && token.length < 4096; // enforce some plausible min length
+}
+
+function superDeriveSharedKey(
+  sharedKeyCache: Map<string, Uint8Array>,
+  secretKey: Uint8Array,
+  peerPublicKeys: PeerPublicKey[],
+  kid: string
+): Uint8Array {
+  if (sharedKeyCache.has(kid)) {
+    return sharedKeyCache.get(kid);
+  }
+  const peerPublicKey: PeerPublicKey = peerPublicKeys.find(
+    (peerPublicKey: PeerPublicKey) => peerPublicKey.kid === kid
+  );
+  if (!peerPublicKey) {
+    return null;
+  }
+
+  return CURVE25519.scalarMult(secretKey, peerPublicKey.publicKey);
 }
 
 export function stringifier(
@@ -148,7 +155,7 @@ export function stringifier(
       !sharedKey ||
       sharedKey.length !== SHARED_KEY_BYTES ||
       !payload ||
-      !isValidMetadata(metadata, false)
+      !isValidMetadata(metadata)
     ) {
       return null;
     }
@@ -179,7 +186,6 @@ export function parser(
   ownSecretKey: Uint8Array,
   ...factoryPeerPublicKeys: PeerPublicKey[]
 ): Parse {
-  let sharedKey: Uint8Array;
   if (
     !ownSecretKey ||
     ownSecretKey.length !== SECRET_KEY_BYTES ||
@@ -187,15 +193,18 @@ export function parser(
   ) {
     return null;
   }
+  const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+  const deriveSharedKey: Function = superDeriveSharedKey.bind(
+    null,
+    sharedKeyCache,
+    ownSecretKey
+  );
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
     let peerPublicKeySet: PeerPublicKey[];
-    if (
-      !isValidToken(token) ||
-      (peerPublicKeys && !peerPublicKeys.every(isValidPeerPublicKey))
-    ) {
+    if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
     } else if (peerPublicKeys.length) {
       peerPublicKeySet = peerPublicKeys;
@@ -204,7 +213,7 @@ export function parser(
     } else {
       return null;
     }
-    let peerPublicKey: PeerPublicKey;
+    let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
     let metadataAndNonce: { [key: string]: any };
@@ -218,8 +227,7 @@ export function parser(
       aad = toUint8Array(parts[0]);
       metadataAndNonce = JSON.parse(dec.decode(aad));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
-      peerPublicKey = findPeerPublicKey(peerPublicKeySet, metadataAndNonce.kid);
-      sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
+      sharedKey = deriveSharedKey(peerPublicKeySet, metadataAndNonce.kid);
       ciphertext = toUint8Array(parts[1]);
       tag = toUint8Array(parts[2]);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
@@ -227,7 +235,7 @@ export function parser(
     } catch (_) {
       return null;
     }
-    if (!payload || !isValidMetadata(metadataAndNonce, true)) {
+    if (!payload || !isValidMetadata(metadataAndNonce)) {
       return null;
     }
     delete metadataAndNonce.nonce;
