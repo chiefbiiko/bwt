@@ -146,6 +146,7 @@ function superDeriveSharedKey(
 }
 
 // TODO: 
+//  + make caching logic consistent across stringify and parse
 //  + isValidSharedKey and apply it directly after every key derivation!
 //  + BWT.generateKeys(seed?): { sk, pk, kid }
 
@@ -186,8 +187,12 @@ export function stringifier(
     }
     let sharedKey: Uint8Array;
     if (peerPublicKey) {
-      sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
-      sharedKeyCache.set(peerPublicKey.kid, sharedKey)
+      if (sharedKeyCache.has(peerPublicKey.kid)) {
+        sharedKey = sharedKeyCache.get(peerPublicKey.kid);
+      } else {
+        sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
+        sharedKeyCache.set(peerPublicKey.kid, sharedKey)
+      }
     } else {
       sharedKey = factorySharedKey;
     }
