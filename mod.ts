@@ -55,14 +55,20 @@ function* createNonceGenerator(): Generator {
   }
 }
 
-function fill(
-  publicKeyMap: Map<string, Uint8Array>,
-  peerPublicKeys: PeerPublicKey[]
-): void {
-  for (const peerPublicKey of peerPublicKeys) {
-    publicKeyMap.set(peerPublicKey.kid, peerPublicKey.publicKey);
-  }
+function toPublicKeyMap(peerPublicKeys: PeerPublicKey[]): Map<string, Uint8Array> {
+ return   new Map<string, Uint8Array>(peerPublicKeys.map(
+    ({ kid, publicKey}: PeerPublicKey): [ string, Uint8Array] => [kid, publicKey]
+  ));
 }
+
+// function fill(
+//   publicKeyMap: Map<string, Uint8Array>,
+//   peerPublicKeys: PeerPublicKey[]
+// ): void {
+//   for (const peerPublicKey of peerPublicKeys) {
+//     publicKeyMap.set(peerPublicKey.kid, peerPublicKey.publicKey);
+//   }
+// }
 
 function assembleMetadataAndNonce(
   metadata: Metadata,
@@ -121,19 +127,30 @@ function isValidToken(token: string): boolean {
 function superDeriveSharedKey(
   secretKey: Uint8Array,
   sharedKeyCache: Map<string, Uint8Array>,
-  publicKeyMap: Map<string, Uint8Array>,
+  factoryPublicKeyMap: Map<string, Uint8Array>,
+  peerPublicKeys: PeerPublicKey[], 
   kid: string
 ): Uint8Array {
   if (sharedKeyCache.has(kid)) {
     return sharedKeyCache.get(kid);
   }
-  if (!publicKeyMap.has(kid)) {
+  let publicKey: Uint8Array;
+  if (peerPublicKeys.length) {
+    let peerPublicKey: PeerPublicKey = peerPublicKeys.find(
+      ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
+    );
+    publicKey = peerPublicKey.publicKey;
+  } else if (factoryPublicKeyMap.has(kid)) {
+    publicKey = factoryPublicKeyMap.get(kid);
+  }
+  if (!publicKey) {
     return null;
   }
   const sharedKey: Uint8Array = CURVE25519.scalarMult(
     secretKey,
-    publicKeyMap.get(kid)
+    publicKey
   );
+  sharedKeyCache.set(kid, sharedKey);
   return sharedKey;
 }
 
@@ -207,14 +224,14 @@ export function parser(
   ) {
     return null;
   }
-  const publicKeyMap: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+  const factoryPublicKeyMap: Map<string, Uint8Array> = toPublicKeyMap(factoryPeerPublicKeys)
   const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
   const deriveSharedKey: Function = superDeriveSharedKey.bind(
     null,
     ownSecretKey,
     sharedKeyCache
   );
-  fill(publicKeyMap, factoryPeerPublicKeys);
+  // fill(publicKeyMap, factoryPeerPublicKeys);
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
@@ -222,7 +239,7 @@ export function parser(
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
     }
-    fill(publicKeyMap, peerPublicKeys);
+    // fill(publicKeyMap, peerPublicKeys);
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
@@ -237,7 +254,7 @@ export function parser(
       aad = toUint8Array(parts[0]);
       metadataAndNonce = JSON.parse(dec.decode(aad));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
-      sharedKey = deriveSharedKey(publicKeyMap, metadataAndNonce.kid);
+      sharedKey = deriveSharedKey(factoryPublicKeyMap, peerPublicKeys, metadataAndNonce.kid);
       ciphertext = toUint8Array(parts[1]);
       tag = toUint8Array(parts[2]);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
