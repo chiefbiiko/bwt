@@ -48,8 +48,6 @@ const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
 
-// TODO: convert internal peer public keys to map in parse factory
-
 function* createNonceGenerator(): Generator {
   let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
   for (;;) {
@@ -57,14 +55,13 @@ function* createNonceGenerator(): Generator {
   }
 }
 
-function peerPublicKeysToMap(
+function fill(
+  publicKeyMap: Map<string, Uint8Array>,
   peerPublicKeys: PeerPublicKey[]
-): Map<string, Uint8Array> {
-  const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+): void {
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid, peerPublicKey.publicKey);
+    publicKeyMap.set(peerPublicKey.kid, peerPublicKey.publicKey);
   }
-  return map;
 }
 
 function assembleMetadataAndNonce(
@@ -105,6 +102,10 @@ function isValidMetadata(metadata: any): boolean {
   );
 }
 
+function isValidSecretKey(secretKey: Uint8Array) {
+  return secretKey && secretKey.length === SECRET_KEY_BYTES;
+}
+
 function isValidPeerPublicKey(peerPublicKey: PeerPublicKey): boolean {
   return (
     peerPublicKey &&
@@ -120,18 +121,18 @@ function isValidToken(token: string): boolean {
 function superDeriveSharedKey(
   secretKey: Uint8Array,
   sharedKeyCache: Map<string, Uint8Array>,
-  peerPublicKeyMap: Map<string, Uint8Array>,
+  publicKeyMap: Map<string, Uint8Array>,
   kid: string
 ): Uint8Array {
   if (sharedKeyCache.has(kid)) {
     return sharedKeyCache.get(kid);
   }
-  if (!peerPublicKeyMap.has(kid)) {
+  if (!publicKeyMap.has(kid)) {
     return null;
   }
   const sharedKey: Uint8Array = CURVE25519.scalarMult(
     secretKey,
-    peerPublicKeyMap.get(kid)
+    publicKeyMap.get(kid)
   );
   return sharedKey;
 }
@@ -143,8 +144,7 @@ export function stringifier(
   const nonceGenerator: Generator = createNonceGenerator();
   let sharedKey: Uint8Array;
   if (
-    !ownSecretKey ||
-    ownSecretKey.length !== SECRET_KEY_BYTES ||
+    !isValidSecretKey(ownSecretKey) ||
     (peerPublicKey && !isValidPeerPublicKey(peerPublicKey))
   ) {
     return null;
@@ -158,7 +158,8 @@ export function stringifier(
   ): string {
     if (peerPublicKey && !isValidPeerPublicKey(peerPublicKey)) {
       return null;
-    } else if (peerPublicKey) {
+    }
+    if (peerPublicKey) {
       sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
     }
     if (
@@ -197,32 +198,27 @@ export function parser(
   ...factoryPeerPublicKeys: PeerPublicKey[]
 ): Parse {
   if (
-    !ownSecretKey ||
-    ownSecretKey.length !== SECRET_KEY_BYTES ||
+    !isValidSecretKey(ownSecretKey) ||
     !factoryPeerPublicKeys.every(isValidPeerPublicKey)
   ) {
     return null;
   }
+  const publicKeyMap: Map<string, Uint8Array> = new Map<string, Uint8Array>();
   const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
   const deriveSharedKey: Function = superDeriveSharedKey.bind(
     null,
     ownSecretKey,
     sharedKeyCache
   );
-  let peerPublicKeyMap: Map<string, Uint8Array>;
+  fill(publicKeyMap, factoryPeerPublicKeys);
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
-    } else if (peerPublicKeys.length) {
-      peerPublicKeyMap = peerPublicKeysToMap(peerPublicKeys);
-    } else if (factoryPeerPublicKeys.length) {
-      peerPublicKeyMap = peerPublicKeysToMap(factoryPeerPublicKeys);
-    } else {
-      return null;
     }
+    fill(publicKeyMap, peerPublicKeys);
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
@@ -237,7 +233,7 @@ export function parser(
       aad = toUint8Array(parts[0]);
       metadataAndNonce = JSON.parse(dec.decode(aad));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
-      sharedKey = deriveSharedKey(peerPublicKeyMap, metadataAndNonce.kid);
+      sharedKey = deriveSharedKey(publicKeyMap, metadataAndNonce.kid);
       ciphertext = toUint8Array(parts[1]);
       tag = toUint8Array(parts[2]);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
