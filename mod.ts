@@ -137,6 +137,10 @@ function superDeriveSharedKey(
   return sharedKey;
 }
 
+// TODO: 
+//  + cache sharedKeys in stringifier
+//  + BWT.generateKeys(seed?): { sk, pk, kid }
+
 export function stringifier(
   ownSecretKey: Uint8Array,
   peerPublicKey?: PeerPublicKey
