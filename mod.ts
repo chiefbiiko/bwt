@@ -57,6 +57,16 @@ function* createNonceGenerator(): Generator {
   }
 }
 
+function peerPublicKeysToMap(
+  peerPublicKeys: PeerPublicKey[]
+): Map<string, Uint8Array> {
+  const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+  for (const peerPublicKey of peerPublicKeys) {
+    map.set(peerPublicKey.kid, peerPublicKey.publicKey);
+  }
+  return map;
+}
+
 function assembleMetadataAndNonce(
   metadata: Metadata,
   nonce: Uint8Array
@@ -108,22 +118,22 @@ function isValidToken(token: string): boolean {
 }
 
 function superDeriveSharedKey(
-  sharedKeyCache: Map<string, Uint8Array>,
   secretKey: Uint8Array,
-  peerPublicKeys: PeerPublicKey[],
+  sharedKeyCache: Map<string, Uint8Array>,
+  peerPublicKeyMap: Map<string, Uint8Array>,
   kid: string
 ): Uint8Array {
   if (sharedKeyCache.has(kid)) {
     return sharedKeyCache.get(kid);
   }
-  const peerPublicKey: PeerPublicKey = peerPublicKeys.find(
-    (peerPublicKey: PeerPublicKey) => peerPublicKey.kid === kid
-  );
-  if (!peerPublicKey) {
+  if (!peerPublicKeyMap.has(kid)) {
     return null;
   }
-
-  return CURVE25519.scalarMult(secretKey, peerPublicKey.publicKey);
+  const sharedKey: Uint8Array = CURVE25519.scalarMult(
+    secretKey,
+    peerPublicKeyMap.get(kid)
+  );
+  return sharedKey;
 }
 
 export function stringifier(
@@ -196,20 +206,20 @@ export function parser(
   const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
   const deriveSharedKey: Function = superDeriveSharedKey.bind(
     null,
-    sharedKeyCache,
-    ownSecretKey
+    ownSecretKey,
+    sharedKeyCache
   );
+  let peerPublicKeyMap: Map<string, Uint8Array>;
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
-    let peerPublicKeySet: PeerPublicKey[];
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
     } else if (peerPublicKeys.length) {
-      peerPublicKeySet = peerPublicKeys;
+      peerPublicKeyMap = peerPublicKeysToMap(peerPublicKeys);
     } else if (factoryPeerPublicKeys.length) {
-      peerPublicKeySet = factoryPeerPublicKeys;
+      peerPublicKeyMap = peerPublicKeysToMap(factoryPeerPublicKeys);
     } else {
       return null;
     }
@@ -227,7 +237,7 @@ export function parser(
       aad = toUint8Array(parts[0]);
       metadataAndNonce = JSON.parse(dec.decode(aad));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
-      sharedKey = deriveSharedKey(peerPublicKeySet, metadataAndNonce.kid);
+      sharedKey = deriveSharedKey(peerPublicKeyMap, metadataAndNonce.kid);
       ciphertext = toUint8Array(parts[1]);
       tag = toUint8Array(parts[2]);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);

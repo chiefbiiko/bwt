@@ -77,7 +77,6 @@ Object.assign(b, b.curve.generateKeys(b.seed));
 Object.assign(c, c.curve.generateKeys(c.seed));
 Object.assign(d, d.curve.generateKeys(d.seed));
 
-
 // creating their workhorses
 a.stringify = BWT.stringifier(a.sk, {
   kid: "bob_public_key",
@@ -102,10 +101,9 @@ c.stringify = BWT.stringifier(c.sk, {
 });
 
 d.parse = BWT.parser(d.sk, {
-    kid: "chiefbiiko_public_key",
-    publicKey: c.pk
-  }
-);
+  kid: "chiefbiiko_public_key",
+  publicKey: c.pk
+});
 
 test(function bwtAliceAndBob(): void {
   const inputMetadata: BWT.Metadata = createMetadata({
