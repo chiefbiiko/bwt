@@ -43,7 +43,6 @@ export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
-const SHARED_KEY_BYTES: number = 32;
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
@@ -58,14 +57,11 @@ function* createNonceGenerator(): Generator {
 function toPublicKeyMap(
   ...peerPublicKeys: PeerPublicKey[]
 ): Map<string, Uint8Array> {
-  return new Map<string, Uint8Array>(
-    peerPublicKeys.map(
-      ({ kid, publicKey }: PeerPublicKey): [string, Uint8Array] => [
-        kid,
-        publicKey
-      ]
-    )
-  );
+  const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+  for (const peerPublicKey of peerPublicKeys) {
+    map.set(peerPublicKey.kid, peerPublicKey.publicKey);
+  }
+  return map;
 }
 
 function assembleMetadataAndNonce(
@@ -106,10 +102,6 @@ function isValidMetadata(x: any): boolean {
   );
 }
 
-function isValidSharedKey(x: Uint8Array): boolean {
-  return x && x.length === SHARED_KEY_BYTES;
-}
-
 function isValidSecretKey(x: Uint8Array): boolean {
   return x && x.length === SECRET_KEY_BYTES;
 }
@@ -125,22 +117,22 @@ function isValidToken(x: string): boolean {
 function deriveSharedKeyProto(
   secretKey: Uint8Array,
   sharedKeyCache: Map<string, Uint8Array>,
-  factoryPublicKeyMap: Map<string, Uint8Array>,
-  kid: string,
+  defaultPublicKeyMap: Map<string, Uint8Array>,
+  defaultKid: string,
+  kid: string = defaultKid,
   ...peerPublicKeySpace: PeerPublicKey[]
 ): Uint8Array {
-  let publicKey: Uint8Array;
-  if (peerPublicKeySpace.length && sharedKeyCache.has(kid)) {
+  if (sharedKeyCache.has(kid)) {
     return sharedKeyCache.get(kid);
-  } else if (peerPublicKeySpace.length && kid) {
+  }
+  let publicKey: Uint8Array;
+  if (peerPublicKeySpace.length) {
     let peerPublicKey: PeerPublicKey = peerPublicKeySpace.find(
       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
     );
     publicKey = peerPublicKey ? peerPublicKey.publicKey : null;
-  } else if (sharedKeyCache.has(kid)) {
-    return sharedKeyCache.get(kid);
-  } else if (factoryPublicKeyMap.has(kid)) {
-    publicKey = factoryPublicKeyMap.get(kid);
+  } else if (defaultPublicKeyMap.has(kid)) {
+    publicKey = defaultPublicKeyMap.get(kid);
   }
   if (!publicKey) {
     return null;
@@ -154,11 +146,11 @@ function deriveSharedKeyProto(
 
 export function stringifier(
   ownSecretKey: Uint8Array,
-  factoryPeerPublicKey?: PeerPublicKey
+  defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
   if (
     !isValidSecretKey(ownSecretKey) ||
-    (factoryPeerPublicKey && !isValidPeerPublicKey(factoryPeerPublicKey))
+    (defaultPeerPublicKey && !isValidPeerPublicKey(defaultPeerPublicKey))
   ) {
     return null;
   }
@@ -167,7 +159,8 @@ export function stringifier(
     null,
     ownSecretKey,
     new Map<string, Uint8Array>(),
-    toPublicKeyMap(factoryPeerPublicKey)
+    toPublicKeyMap(defaultPeerPublicKey),
+    defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
   );
   return function stringify(
     metadata: Metadata,
@@ -189,11 +182,10 @@ export function stringifier(
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
     let token: string;
     try {
-      if (peerPublicKey) {
-        sharedKey = deriveSharedKey(peerPublicKey.kid, peerPublicKey);
-      } else if (factoryPeerPublicKey) {
-        sharedKey = deriveSharedKey(factoryPeerPublicKey.kid);
-      }
+      sharedKey = deriveSharedKey.apply(
+        null,
+        peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
+      );
       nonce = nonceGenerator.next().value;
       metadataAndNonce = assembleMetadataAndNonce(metadata, nonce);
       aad = enc.encode(JSON.stringify(metadataAndNonce));
@@ -212,11 +204,11 @@ export function stringifier(
 
 export function parser(
   ownSecretKey: Uint8Array,
-  ...factoryPeerPublicKeys: PeerPublicKey[]
+  ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
   if (
     !isValidSecretKey(ownSecretKey) ||
-    !factoryPeerPublicKeys.every(isValidPeerPublicKey)
+    !defaultPeerPublicKeys.every(isValidPeerPublicKey)
   ) {
     return null;
   }
@@ -224,7 +216,8 @@ export function parser(
     null,
     ownSecretKey,
     new Map<string, Uint8Array>(),
-    toPublicKeyMap(...factoryPeerPublicKeys)
+    toPublicKeyMap(...defaultPeerPublicKeys),
+    null
   );
   return function parse(
     token: string,
