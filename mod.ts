@@ -55,10 +55,17 @@ function* createNonceGenerator(): Generator {
   }
 }
 
-function toPublicKeyMap(...peerPublicKeys: PeerPublicKey[]): Map<string, Uint8Array> {
- return   new Map<string, Uint8Array>(peerPublicKeys.map(
-    ({ kid, publicKey}: PeerPublicKey): [ string, Uint8Array] => [kid, publicKey]
-  ));
+function toPublicKeyMap(
+  ...peerPublicKeys: PeerPublicKey[]
+): Map<string, Uint8Array> {
+  return new Map<string, Uint8Array>(
+    peerPublicKeys.map(
+      ({ kid, publicKey }: PeerPublicKey): [string, Uint8Array] => [
+        kid,
+        publicKey
+      ]
+    )
+  );
 }
 
 function assembleMetadataAndNonce(
@@ -82,128 +89,99 @@ function assembleToken(
   );
 }
 
-function isValidMetadata(metadata: any): boolean {
+function isValidMetadata(x: any): boolean {
   const now: number = Date.now();
   return (
-    metadata &&
-    SUPPORTED_BWT_VERSIONS.includes(metadata.typ) &&
-    metadata.kid.length &&
-    metadata.iat >= 0 &&
-    !Number.isNaN(metadata.iat) &&
-    Number.isFinite(metadata.iat) &&
-    metadata.iat <= now &&
-    metadata.exp >= 0 &&
-    !Number.isNaN(metadata.exp) &&
-    Number.isFinite(metadata.exp) &&
-    metadata.exp > now
+    x &&
+    SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
+    x.kid.length &&
+    x.iat >= 0 &&
+    !Number.isNaN(x.iat) &&
+    Number.isFinite(x.iat) &&
+    x.iat <= now &&
+    x.exp >= 0 &&
+    !Number.isNaN(x.exp) &&
+    Number.isFinite(x.exp) &&
+    x.exp > now
   );
 }
 
-function isValidSecretKey(secretKey: Uint8Array) {
-  return secretKey && secretKey.length === SECRET_KEY_BYTES;
+function isValidSharedKey(x: Uint8Array): boolean {
+  return x && x.length === SHARED_KEY_BYTES;
 }
 
-function isValidPeerPublicKey(peerPublicKey: PeerPublicKey): boolean {
-  return (
-    peerPublicKey &&
-    peerPublicKey.kid.length &&
-    peerPublicKey.publicKey.length === PUBLIC_KEY_BYTES
-  );
+function isValidSecretKey(x: Uint8Array): boolean {
+  return x && x.length === SECRET_KEY_BYTES;
 }
 
-function isValidToken(token: string): boolean {
-  return token && token.length < 4096; // enforce some plausible min length
+function isValidPeerPublicKey(x: PeerPublicKey): boolean {
+  return x && x.kid.length && x.publicKey.length === PUBLIC_KEY_BYTES;
 }
 
-function superDeriveSharedKey(
+function isValidToken(x: string): boolean {
+  return x && x.length < 4096; // enforce some plausible min length
+}
+
+function deriveSharedKeyProto(
   secretKey: Uint8Array,
   sharedKeyCache: Map<string, Uint8Array>,
   factoryPublicKeyMap: Map<string, Uint8Array>,
-    kid: string,
-  ...peerPublicKeys: PeerPublicKey[]
+  kid: string,
+  ...peerPublicKeySpace: PeerPublicKey[]
 ): Uint8Array {
-  if (sharedKeyCache.has(kid)) {
-    return sharedKeyCache.get(kid);
-  }
   let publicKey: Uint8Array;
-  if (peerPublicKeys.length) {
-    let peerPublicKey: PeerPublicKey = peerPublicKeys.find(
+  if (peerPublicKeySpace.length && sharedKeyCache.has(kid)) {
+    return sharedKeyCache.get(kid);
+  } else if (peerPublicKeySpace.length && kid) {
+    let peerPublicKey: PeerPublicKey = peerPublicKeySpace.find(
       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
     );
     publicKey = peerPublicKey ? peerPublicKey.publicKey : null;
+  } else if (sharedKeyCache.has(kid)) {
+    return sharedKeyCache.get(kid);
   } else if (factoryPublicKeyMap.has(kid)) {
     publicKey = factoryPublicKeyMap.get(kid);
   }
   if (!publicKey) {
     return null;
   }
-  const sharedKey: Uint8Array = CURVE25519.scalarMult(
-    secretKey,
-    publicKey
-  );
+  const sharedKey: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
   sharedKeyCache.set(kid, sharedKey);
   return sharedKey;
 }
 
-// TODO: 
-//  + make caching logic consistent across stringify and parse
-//  + isValidSharedKey and apply it directly after every key derivation!
-//  + BWT.generateKeys(seed?): { sk, pk, kid }
+// TODO: BWT.generateKeys(seed?): { sk, pk, kid }
 
 export function stringifier(
   ownSecretKey: Uint8Array,
   factoryPeerPublicKey?: PeerPublicKey
 ): Stringify {
-  const nonceGenerator: Generator = createNonceGenerator();
-  const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
-  let factorySharedKey: Uint8Array;
   if (
     !isValidSecretKey(ownSecretKey) ||
-    (  factoryPeerPublicKey && !isValidPeerPublicKey(  factoryPeerPublicKey))
+    (factoryPeerPublicKey && !isValidPeerPublicKey(factoryPeerPublicKey))
   ) {
     return null;
-  } 
-  if (factoryPeerPublicKey) {
-    factorySharedKey = CURVE25519.scalarMult(ownSecretKey, factoryPeerPublicKey.publicKey);
   }
-  // const factoryPublicKeyMap: Map<string, Uint8Array> = toPublicKeyMap(factoryPeerPublicKey);
-  // const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
-  // if (factoryPeerPublicKey) {
-  //   const sharedKey: Uint8Array = CURVE25519.scalarMult(ownSecretKey, factoryPeerPublicKey.publicKey)
-  //   sharedKeyCache.set(factoryPeerPublicKey.kid, sharedKey)
-  // }
-  // const deriveSharedKey: Function = superDeriveSharedKey.bind(
-  //   null,
-  //   ownSecretKey,
-  //   sharedKeyCache
-  // );
+  const nonceGenerator: Generator = createNonceGenerator();
+  const deriveSharedKey: Function = deriveSharedKeyProto.bind(
+    null,
+    ownSecretKey,
+    new Map<string, Uint8Array>(),
+    toPublicKeyMap(factoryPeerPublicKey)
+  );
   return function stringify(
     metadata: Metadata,
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (peerPublicKey && !isValidPeerPublicKey(peerPublicKey)) {
-      return null;
-    }
-    let sharedKey: Uint8Array;
-    if (peerPublicKey) {
-      if (sharedKeyCache.has(peerPublicKey.kid)) {
-        sharedKey = sharedKeyCache.get(peerPublicKey.kid);
-      } else {
-        sharedKey = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey);
-        sharedKeyCache.set(peerPublicKey.kid, sharedKey)
-      }
-    } else {
-      sharedKey = factorySharedKey;
-    }
     if (
-      !sharedKey ||
-      sharedKey.length !== SHARED_KEY_BYTES ||
+      !isValidMetadata(metadata) ||
       !payload ||
-      !isValidMetadata(metadata)
+      (peerPublicKey && !isValidPeerPublicKey(peerPublicKey))
     ) {
       return null;
     }
+    let sharedKey: Uint8Array;
     let nonce: Uint8Array;
     let metadataAndNonce: { [key: string]: any };
     let aad: Uint8Array;
@@ -211,6 +189,11 @@ export function stringifier(
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
     let token: string;
     try {
+      if (peerPublicKey) {
+        sharedKey = deriveSharedKey(peerPublicKey.kid, peerPublicKey);
+      } else if (factoryPeerPublicKey) {
+        sharedKey = deriveSharedKey(factoryPeerPublicKey.kid);
+      }
       nonce = nonceGenerator.next().value;
       metadataAndNonce = assembleMetadataAndNonce(metadata, nonce);
       aad = enc.encode(JSON.stringify(metadataAndNonce));
@@ -237,12 +220,11 @@ export function parser(
   ) {
     return null;
   }
-  const factoryPublicKeyMap: Map<string, Uint8Array> = toPublicKeyMap(...factoryPeerPublicKeys)
-  const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>();
-  const deriveSharedKey: Function = superDeriveSharedKey.bind(
+  const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
-    sharedKeyCache
+    new Map<string, Uint8Array>(),
+    toPublicKeyMap(...factoryPeerPublicKeys)
   );
   return function parse(
     token: string,
@@ -265,7 +247,7 @@ export function parser(
       aad = toUint8Array(parts[0]);
       metadataAndNonce = JSON.parse(dec.decode(aad));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
-      sharedKey = deriveSharedKey(factoryPublicKeyMap, metadataAndNonce.kid, ...peerPublicKeys);
+      sharedKey = deriveSharedKey(metadataAndNonce.kid, ...peerPublicKeys);
       ciphertext = toUint8Array(parts[1]);
       tag = toUint8Array(parts[2]);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
