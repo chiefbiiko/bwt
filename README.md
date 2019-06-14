@@ -12,7 +12,7 @@
 
 ## TODOs
 
-- acquire some csprng
+- cache computed shared secrets in the factory in a `Map<kid,sharedSecret>` -> done
 
 ## Pending Flaws, Security Considerations
 

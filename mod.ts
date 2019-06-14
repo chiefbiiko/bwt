@@ -33,10 +33,16 @@ export interface Parse {
   (token: string, peerPublicKey?: PeerPublicKey): Contents;
 }
 
+export interface KeyPair {
+  kid: Uint8Array;
+  pk: Uint8Array;
+  sk: Uint8Array;
+}
+
 export interface PeerPublicKey {
   kid: string;
-  publicKey: Uint8Array;
-  iss?: string;
+  pk: Uint8Array;
+  name?: string;
 }
 
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
@@ -58,9 +64,11 @@ function toPublicKeyMap(
   ...peerPublicKeys: PeerPublicKey[]
 ): Map<string, Uint8Array> {
   const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid, peerPublicKey.publicKey);
+    map.set(peerPublicKey.kid, peerPublicKey.pk);
   }
+
   return map;
 }
 
@@ -107,7 +115,7 @@ function isValidSecretKey(x: Uint8Array): boolean {
 }
 
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
-  return x && x.kid.length && x.publicKey.length === PUBLIC_KEY_BYTES;
+  return x && x.kid.length && x.pk.length === PUBLIC_KEY_BYTES;
 }
 
 function isValidToken(x: string): boolean {
@@ -125,24 +133,37 @@ function deriveSharedKeyProto(
   if (sharedKeyCache.has(kid)) {
     return sharedKeyCache.get(kid);
   }
+
   let publicKey: Uint8Array;
+
   if (peerPublicKeySpace.length) {
     let peerPublicKey: PeerPublicKey = peerPublicKeySpace.find(
       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
     );
-    publicKey = peerPublicKey ? peerPublicKey.publicKey : null;
+    publicKey = peerPublicKey ? peerPublicKey.pk : null;
   } else if (defaultPublicKeyMap.has(kid)) {
     publicKey = defaultPublicKeyMap.get(kid);
   }
+
   if (!publicKey) {
     return null;
   }
+
   const sharedKey: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
   sharedKeyCache.set(kid, sharedKey);
+
   return sharedKey;
 }
 
-// TODO: BWT.generateKeys(seed?): { sk, pk, kid }
+export function generateKeys(): KeyPair {
+  const keypair: { sk: Uint8Array; pk: Uint8Array } = CURVE25519.generateKeys(
+    crypto.getRandomValues(new Uint8Array(32))
+  );
+
+  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
+
+  return { ...keypair, kid };
+}
 
 export function stringifier(
   ownSecretKey: Uint8Array,
@@ -154,7 +175,9 @@ export function stringifier(
   ) {
     return null;
   }
+
   const nonceGenerator: Generator = createNonceGenerator();
+
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
@@ -162,6 +185,7 @@ export function stringifier(
     toPublicKeyMap(defaultPeerPublicKey),
     defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
   );
+
   return function stringify(
     metadata: Metadata,
     payload: Payload,
@@ -174,6 +198,7 @@ export function stringifier(
     ) {
       return null;
     }
+
     let sharedKey: Uint8Array;
     let nonce: Uint8Array;
     let metadataAndNonce: { [key: string]: any };
@@ -181,6 +206,7 @@ export function stringifier(
     let plaintext: Uint8Array;
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
     let token: string;
+
     try {
       sharedKey = deriveSharedKey.apply(
         null,
@@ -195,9 +221,11 @@ export function stringifier(
     } catch (_) {
       return null;
     }
+
     if (!isValidToken(token)) {
       return null;
     }
+
     return token;
   };
 }
@@ -212,6 +240,7 @@ export function parser(
   ) {
     return null;
   }
+
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
@@ -219,6 +248,7 @@ export function parser(
     toPublicKeyMap(...defaultPeerPublicKeys),
     null
   );
+
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
@@ -226,6 +256,7 @@ export function parser(
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
     }
+
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
@@ -235,6 +266,7 @@ export function parser(
     let tag: Uint8Array;
     let plaintext: Uint8Array;
     let payload: Payload;
+
     try {
       parts = token.split(".");
       aad = toUint8Array(parts[0]);
@@ -248,10 +280,13 @@ export function parser(
     } catch (_) {
       return null;
     }
+
     if (!payload || !isValidMetadata(metadataAndNonce)) {
       return null;
     }
+
     delete metadataAndNonce.nonce;
+
     return { metadata: metadataAndNonce as Metadata, payload };
   };
 }
