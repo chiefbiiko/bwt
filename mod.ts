@@ -98,6 +98,7 @@ function isValidMetadata(x: any): boolean {
   return (
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
+    x.kid &&
     x.kid.length &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
