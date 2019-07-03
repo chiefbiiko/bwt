@@ -12,17 +12,13 @@
 
 ## TODOs
 
-- cache computed shared secrets in the factory in a `Map<kid,sharedSecret>` -> done
+- figure out `kid`, peer public key, just key encoding handling
 
-- figure out `kid` types
-
-## Pending Flaws, Security Considerations
-
-- How to mitigate DoS attacks that target `POLY1305`? -> overall size cap, done
+## Pending Security Considerations
 
 - Does having these in the plain AAD (`iat`, `kid`, `typ`, and `exp` claims) lead to any vulnerabilities?
 
-## Threat Mitigations
+## Design
 
 - No [cryptographic agility](https://tools.ietf.org/html/rfc7518#section-8.1)
   available to developers

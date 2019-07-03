@@ -1,13 +1,20 @@
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
+
 import {
   toUint8Array,
   fromUint8Array
 } from "https://denopkg.com/chiefbiiko/base64/mod.ts";
+
 import {
   seal,
   open,
   NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
+
+// TODO:
+//   keys (KeyPair, PeerPublicKey) have either all bin or base64 fields
+//   related functions take an additional encoding parameter
+//   !! encode maybe base64-encoded input keys to binary in any exposed funcs !!
 
 export interface Metadata {
   typ: string;
@@ -49,6 +56,8 @@ export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
+type MetadataAndNonce = Metadata & { nonce: number[] };
+
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
 const dec: TextDecoder = new TextDecoder();
@@ -75,8 +84,8 @@ function toPublicKeyMap(
 function assembleMetadataAndNonce(
   metadata: Metadata,
   nonce: Uint8Array
-): { [key: string]: any } {
-  return Object.assign({}, metadata, { nonce: Array.from(nonce) });
+): MetadataAndNonce {
+  return { ...metadata, nonce: Array.from(nonce) };
 }
 
 function assembleToken(
@@ -99,6 +108,7 @@ function isValidMetadata(x: any): boolean {
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
     x.kid &&
+    // TODO: assert length equals 16 bytes
     x.kid.length &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
@@ -112,7 +122,7 @@ function isValidMetadata(x: any): boolean {
 }
 
 function isValidSecretKey(x: Uint8Array): boolean {
-  return x && x.length === SECRET_KEY_BYTES;
+  return x && x.byteLength === SECRET_KEY_BYTES;
 }
 
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
@@ -261,7 +271,7 @@ export function parser(
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
-    let metadataAndNonce: { [key: string]: any };
+    let metadataAndNonce: MetadataAndNonce;
     let nonce: Uint8Array;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
