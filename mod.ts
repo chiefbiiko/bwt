@@ -56,7 +56,9 @@ export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
-type MetadataAndNonce = Metadata & { nonce: number[] };
+interface MetadataAndNonce extends Metadata {
+  nonce: number[];
+}
 
 const CURVE25519: Curve25519 = new Curve25519();
 const enc: TextEncoder = new TextEncoder();
@@ -212,7 +214,7 @@ export function stringifier(
 
     let sharedKey: Uint8Array;
     let nonce: Uint8Array;
-    let metadataAndNonce: { [key: string]: any };
+    let metadataAndNonce: MetadataAndNonce;
     let aad: Uint8Array;
     let plaintext: Uint8Array;
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
