@@ -1,9 +1,9 @@
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 
 import {
-  toUint8Array,
-  fromUint8Array
-} from "https://denopkg.com/chiefbiiko/base64/mod.ts";
+  encode,
+  decode
+} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
 import {
   seal,
@@ -41,15 +41,15 @@ export interface Parse {
 }
 
 export interface KeyPair {
-  kid: Uint8Array;
-  pk: Uint8Array;
-  sk: Uint8Array;
+  kid: string | Uint8Array;
+  pk: string | Uint8Array;
+  sk: string | Uint8Array;
 }
 
 export interface PeerPublicKey {
-  kid: string;
-  pk: Uint8Array;
-  name?: string;
+  kid: string | Uint8Array;
+  pk: string | Uint8Array;
+  name?: string | Uint8Array;
 }
 
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
@@ -61,13 +61,27 @@ interface MetadataAndNonce extends Metadata {
 }
 
 const CURVE25519: Curve25519 = new Curve25519();
-const enc: TextEncoder = new TextEncoder();
-const dec: TextDecoder = new TextDecoder();
+
+function assureBinaryProps<T>(doc: T): T {
+  return Object.entries(doc).reduce(
+    (acc: T, [key, val]: [string, string | Uint8Array]): T => {
+      if (typeof val === "string") {
+        acc[key] = encode(val, "base64");
+      } else {
+        acc[key] = val;
+      }
+
+      return acc;
+    },
+    {}
+  );
+}
 
 function* createNonceGenerator(): Generator {
   let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
+
   for (;;) {
-    yield enc.encode(String(++base));
+    yield encode(String(++base), "utf8");
   }
 }
 
@@ -96,11 +110,11 @@ function assembleToken(
   tag: Uint8Array
 ): string {
   return (
-    fromUint8Array(aad) +
+    decode(aad, "base64") +
     "." +
-    fromUint8Array(ciphertext) +
+    decode(ciphertext, "base64") +
     "." +
-    fromUint8Array(tag)
+    decode(tag, "base64")
   );
 }
 
@@ -153,7 +167,8 @@ function deriveSharedKeyProto(
     let peerPublicKey: PeerPublicKey = peerPublicKeySpace.find(
       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
     );
-    publicKey = peerPublicKey ? peerPublicKey.pk : null;
+
+    publicKey = peerPublicKey ? (peerPublicKey.pk as Uint8Array) : null;
   } else if (defaultPublicKeyMap.has(kid)) {
     publicKey = defaultPublicKeyMap.get(kid);
   }
@@ -182,6 +197,10 @@ export function stringifier(
   ownSecretKey: Uint8Array,
   defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
+  if (defaultPeerPublicKey) {
+    defaultPeerPublicKey = assureBinaryProps(defaultPeerPublicKey);
+  }
+
   if (
     !isValidSecretKey(ownSecretKey) ||
     (defaultPeerPublicKey && !isValidPeerPublicKey(defaultPeerPublicKey))
@@ -204,6 +223,10 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
+    if (peerPublicKey) {
+      peerPublicKey = assureBinaryProps(peerPublicKey);
+    }
+
     if (
       !isValidMetadata(metadata) ||
       !payload ||
@@ -227,8 +250,8 @@ export function stringifier(
       );
       nonce = nonceGenerator.next().value;
       metadataAndNonce = assembleMetadataAndNonce(metadata, nonce);
-      aad = enc.encode(JSON.stringify(metadataAndNonce));
-      plaintext = enc.encode(JSON.stringify(payload));
+      aad = encode(JSON.stringify(metadataAndNonce), "utf8");
+      plaintext = encode(JSON.stringify(payload), "utf8");
       sealed = seal(sharedKey, nonce, plaintext, aad);
       token = assembleToken(aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
@@ -247,6 +270,10 @@ export function parser(
   ownSecretKey: Uint8Array,
   ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
+  if (defaultPeerPublicKeys.length) {
+    defaultPeerPublicKeys = defaultPeerPublicKeys.map(assureBinaryProps);
+  }
+
   if (
     !isValidSecretKey(ownSecretKey) ||
     !defaultPeerPublicKeys.every(isValidPeerPublicKey)
@@ -266,6 +293,10 @@ export function parser(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
+    if (peerPublicKeys.length) {
+      peerPublicKeys = peerPublicKeys.map(assureBinaryProps);
+    }
+
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
     }
@@ -282,14 +313,14 @@ export function parser(
 
     try {
       parts = token.split(".");
-      aad = toUint8Array(parts[0]);
-      metadataAndNonce = JSON.parse(dec.decode(aad));
+      aad = encode(parts[0], "base64");
+      metadataAndNonce = JSON.parse(decode(aad, "utf8"));
       nonce = Uint8Array.from(metadataAndNonce.nonce);
       sharedKey = deriveSharedKey(metadataAndNonce.kid, ...peerPublicKeys);
-      ciphertext = toUint8Array(parts[1]);
-      tag = toUint8Array(parts[2]);
+      ciphertext = encode(parts[1], "base64");
+      tag = encode(parts[2], "base64");
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
-      payload = JSON.parse(dec.decode(plaintext));
+      payload = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
     }
