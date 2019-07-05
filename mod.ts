@@ -61,20 +61,31 @@ interface MetadataAndNonce extends Metadata {
 }
 
 const CURVE25519: Curve25519 = new Curve25519();
+const BASE64: RegExp = /base64/i;
 
-function assureBinaryProps<T>(doc: T): T {
-  return Object.entries(doc).reduce(
-    (acc: T, [key, val]: [string, string | Uint8Array]): T => {
-      if (typeof val === "string") {
-        acc[key] = encode(val, "base64");
-      } else {
-        acc[key] = val;
-      }
+/** Transforms any string to binary props is the key is not "kid". */
+function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
+  const clone: PeerPublicKey = { ...ppk };
 
-      return acc;
-    },
-    {}
-  );
+  if (typeof clone.kid !== "string") {
+    clone.kid = decode(clone.kid, "base64");
+  }
+
+  if (typeof clone.pk === "string") {
+    clone.pk = encode(clone.pk);
+  }
+
+  return clone;
+}
+
+function normalizeMetadata(metadata: Metadata): Metadata {
+  const clone: Metadata = { ...metadata } as Metadata;
+
+  if (typeof clone.kid !== "string") {
+    clone.kid = decode(clone.kid, "base64");
+  }
+
+  return clone;
 }
 
 function* createNonceGenerator(): Generator {
@@ -91,7 +102,7 @@ function toPublicKeyMap(
   const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
 
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid, peerPublicKey.pk);
+    map.set(peerPublicKey.kid as string, peerPublicKey.pk as Uint8Array);
   }
 
   return map;
@@ -183,12 +194,24 @@ function deriveSharedKeyProto(
   return sharedKey;
 }
 
-export function generateKeys(): KeyPair {
+export function generateKeys(outputEncoding?: string): KeyPair {
+  if (outputEncoding && !BASE64.test(outputEncoding)) {
+    throw new TypeError('outputEncoding must be undefined or "base64"');
+  }
+
   const keypair: { sk: Uint8Array; pk: Uint8Array } = CURVE25519.generateKeys(
     crypto.getRandomValues(new Uint8Array(32))
   );
 
   const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
+
+  if (outputEncoding) {
+    return {
+      sk: decode(keypair.sk, "base64"),
+      pk: decode(keypair.pk, "base64"),
+      kid: decode(kid, "base64")
+    };
+  }
 
   return { ...keypair, kid };
 }
@@ -198,7 +221,7 @@ export function stringifier(
   defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
   if (defaultPeerPublicKey) {
-    defaultPeerPublicKey = assureBinaryProps(defaultPeerPublicKey);
+    defaultPeerPublicKey = normalizePeerPublicKey(defaultPeerPublicKey);
   }
 
   if (
@@ -223,8 +246,12 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
+    if (metadata) {
+      metadata = normalizeMetadata(metadata);
+    }
+
     if (peerPublicKey) {
-      peerPublicKey = assureBinaryProps(peerPublicKey);
+      peerPublicKey = normalizePeerPublicKey(peerPublicKey);
     }
 
     if (
@@ -271,7 +298,7 @@ export function parser(
   ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
   if (defaultPeerPublicKeys.length) {
-    defaultPeerPublicKeys = defaultPeerPublicKeys.map(assureBinaryProps);
+    defaultPeerPublicKeys = defaultPeerPublicKeys.map(normalizePeerPublicKey);
   }
 
   if (
@@ -294,7 +321,7 @@ export function parser(
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
     if (peerPublicKeys.length) {
-      peerPublicKeys = peerPublicKeys.map(assureBinaryProps);
+      peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
     }
 
     if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
