@@ -358,12 +358,12 @@ test({
     // const header: { [key: string]: number | string } = JSON.parse(
     //   decode(encode(parts[0], "base64"), "utf8")
     // );
-    // 
+    //
     // header.nonce[0] ^= 0x99;
-    // 
+    //
     // parts[0] = decode(encode(JSON.stringify(header), "utf8"), "base64");
     const headerBuf: Uint8Array = encode(parts[0], "base64");
-    
+
     headerBuf[36] ^= 0x99;
 
     parts[0] = decode(headerBuf, "base64");
@@ -387,12 +387,12 @@ test({
     // const header: { [key: string]: number | string } = JSON.parse(
     //   decode(encode(parts[0], "base64"), "utf8")
     // );
-    // 
+    //
     // header.nonce[0] ^= 0x99;
-    // 
+    //
     // parts[0] = decode(encode(JSON.stringify(header), "utf8"), "base64");
     const headerBuf: Uint8Array = encode(parts[0], "base64");
-    
+
     headerBuf[headerBuf.byteLength - 1] ^= 0x99;
 
     parts[0] = decode(headerBuf, "base64");
@@ -447,4 +447,4 @@ test({
   }
 });
 
-runIfMain(import.meta, { parallel: true, });
+runIfMain(import.meta, { parallel: true });
