@@ -18,4 +18,4 @@
 - `BWT`s require a fixed set of four metadata claims - no opting-out
   - still - no cryptographic agility available to module users
 
-- in case of unexpected state marshalling ops return `null` rather than `throw`ing exceptions (that possibly leak sensitive information).
+- in case of unexpected state marshalling ops return `null` rather than `throw`ing exceptions (that possibly leak sensitive information)

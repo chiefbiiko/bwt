@@ -11,61 +11,100 @@ import {
   NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
 
-// TODO:
-//   keys (KeyPair, PeerPublicKey) have either all bin or base64 fields
-//   related functions take an additional encoding parameter
-//   !! encode maybe base64-encoded input keys to binary in any exposed funcs !!
-
+/**
+ * BWT metadata object.
+ * 
+ * typ must be a supported BWT version tag, currently that is "BWTv0" only.
+ * iat and exp denote the issued-at and expiry ms timestamps of a token.
+ * kid is the public key identifier of the issuing party. base64 encoded kid
+ * strings are supported.
+ */
 export interface Metadata {
-  typ: string | Uint8Array;
-  kid: string;
+  typ: string;
   iat: number;
   exp: number;
+  kid: string | Uint8Array;
 }
 
+/** BWT payload object. */
 export interface Payload {
   [key: string]: unknown;
 }
 
+/** Parsed contents of a token. */
 export interface Contents {
   metadata: Metadata;
   payload: Payload;
 }
 
+/** BWT stringify function. */
 export interface Stringify {
   (metadata: Metadata, payload: Payload, peerPublicKey?: PeerPublicKey): string;
 }
 
+/** BWT parse function. */
 export interface Parse {
   (token: string, peerPublicKey?: PeerPublicKey): Contents;
 }
 
+/**
+ * BWT keypair object including a key identifier for the public key.
+ *
+ * sk is the 32-byte secret key.
+ * pk is the 32-byte public key.
+ * kid is a 16-byte key identifer for the public key.
+ *
+ * Any of the above properties can either be buffers or base64 strings.
+*/
 export interface KeyPair {
-  kid: string | Uint8Array;
+    sk: string | Uint8Array;
   pk: string | Uint8Array;
-  sk: string | Uint8Array;
+  kid: string | Uint8Array;
 }
 
+/**
+ * BWT public key of a peer.
+ *
+ * pk is the 32-byte public key.
+ * kid is a 16-byte key identifer for the public key.
+ * name can be an arbitrarily encoded string or a buffer.
+ */
 export interface PeerPublicKey {
-  kid: string | Uint8Array;
   pk: string | Uint8Array;
+    kid: string | Uint8Array;
   name?: string | Uint8Array;
 }
 
+/** Supported BWT versions. */
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
+
+/** Byte length of a Curve25519 secret key. */
 export const SECRET_KEY_BYTES: number = 32;
+
+/** Byte length of a Curve25519 public key. */
 export const PUBLIC_KEY_BYTES: number = 32;
 
+/** Internal object representation adding a nonce to a metadata object. */
 interface MetadataAndNonce extends Metadata {
   nonce: number[];
 }
-
+/** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
+
+/** One-time-compiled regex for checking outputEncoding params.*/
 const BASE64_REGEX: RegExp = /base64/i;
+
+/** Number of characters of a base64 encoded public key identifier. */
 const KID_BYTES_BASE64: number = 24;
+
+/** Maximum allowed number of characters of a token. */
 const MAX_TOKEN_LENGTH: number = 4096;
 
 /** Transforms any string to binary props if it is not "kid", stays string. */
+/**
+ * Normalizes a peer pubilc key object by assuring its kid is a base64 string
+ * and ensuring that its pk prop is a Uint8Array.
+ */
 function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
   const clone: PeerPublicKey = { ...ppk };
 
@@ -80,6 +119,7 @@ function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
   return clone;
 }
 
+/** Normalizes a metadata object by assuring its kid is a base64 string. */
 function normalizeMetadata(metadata: Metadata): Metadata {
   const clone: Metadata = { ...metadata };
 
@@ -90,6 +130,7 @@ function normalizeMetadata(metadata: Metadata): Metadata {
   return clone;
 }
 
+/** Creates a nonce generator that is based on the current timestamp. */
 function* createNonceGenerator(): Generator {
   let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
 
@@ -98,6 +139,7 @@ function* createNonceGenerator(): Generator {
   }
 }
 
+/** Transforms a collection of public keys to a map representation. */
 function toPublicKeyMap(
   ...peerPublicKeys: PeerPublicKey[]
 ): Map<string, Uint8Array> {
@@ -110,6 +152,7 @@ function toPublicKeyMap(
   return map;
 }
 
+/** Assembles a merges object from a metadata object and a nonce. */
 function assembleMetadataAndNonce(
   metadata: Metadata,
   nonce: Uint8Array
@@ -117,6 +160,7 @@ function assembleMetadataAndNonce(
   return { ...metadata, nonce: Array.from(nonce) };
 }
 
+/** Concatenates aad, ciphertext, and tag to a token. */
 function assembleToken(
   aad: Uint8Array,
   ciphertext: Uint8Array,
@@ -131,6 +175,7 @@ function assembleToken(
   );
 }
 
+/** Whether given input is a valid BWT metadata object. */
 function isValidMetadata(x: any): boolean {
   const now: number = Date.now();
   return (
@@ -149,20 +194,24 @@ function isValidMetadata(x: any): boolean {
   );
 }
 
+/** Whether given input is a valid BWT secret key. */
 function isValidSecretKey(x: Uint8Array): boolean {
   return x && x.byteLength === SECRET_KEY_BYTES;
 }
 
+/** Whether given input is a valid BWT peer public key. */
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
     x && x.kid.length === KID_BYTES_BASE64 && x.pk.length === PUBLIC_KEY_BYTES
   );
 }
 
+/** Whether given input string complies to the maximum BWT token length. */
 function isValidToken(x: string): boolean {
   return x && x.length <= MAX_TOKEN_LENGTH;
 }
 
+/** Efficiently derives a shared key from recurring kid strings. */
 function deriveSharedKeyProto(
   secretKey: Uint8Array,
   sharedKeyCache: Map<string, Uint8Array>,
@@ -197,6 +246,7 @@ function deriveSharedKeyProto(
   return sharedKey;
 }
 
+/** Generates a BWT key pair, optionally base64 encoded. */
 export function generateKeys(outputEncoding?: string): KeyPair {
   if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
@@ -219,6 +269,13 @@ export function generateKeys(outputEncoding?: string): KeyPair {
   return { ...keypair, kid };
 }
 
+/**
+ * Creates a BWT stringify function.
+ *
+ * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
+ * defaultPeerPublicKey can be a peer public key that shall be used as the 
+ * default for all subsequent invocations of the returned stringify function.
+ */
 export function stringifier(
   ownSecretKey: string | Uint8Array,
   defaultPeerPublicKey?: PeerPublicKey
@@ -249,6 +306,15 @@ export function stringifier(
     defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
   );
 
+  /**
+   * Stringifies metadata and payload to an authenticated and encrypted token.
+   * 
+   * metadata must be a BWT metadata object.
+   * payload must be a serializable object with string keys
+   * peerPublicKey must be provided if a defaultPeerPublicKey has not been 
+   * passed to BWT::stringifier. It can also be used to override a default peer 
+   * public key for an invocation of the stringify function.
+  */
   return function stringify(
     metadata: Metadata,
     payload: Payload,
@@ -303,6 +369,14 @@ export function stringifier(
   };
 }
 
+/**
+ * Creates a BWT parse function.
+ * 
+ * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
+ * defaultPeerPublicKeys can be a peer public key collection that shall be used
+ * to lookup public keys by key identifiers for all subsequent invocations of
+ * the returned parse function.
+ */
 export function parser(
   ownSecretKey: string | Uint8Array,
   ...defaultPeerPublicKeys: PeerPublicKey[]
@@ -331,6 +405,18 @@ export function parser(
     null
   );
 
+  /**
+   * Parses the contents of a BWT token.
+   *
+   * In case any part of the token is corrupt, it cannot be authenticated or 
+   * encrypted, or any other unexpected state is encountered null is returned.
+   *
+   * token must be a BWT token.
+   * peerPublicKeys must be provided if no default peer public keys have been 
+   * passed to BWT::parser. This collection can also be used to override the 
+   * public key lookup space for the current parse invocation.
+   *
+   */
   return function parse(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
