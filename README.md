@@ -14,8 +14,8 @@
   - high-security `AEAD_CHACHA20_POLY1305` scheme
   - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
 
+- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
   
-- `BWT`s require a fixed set of four metadata claims - no opting-out
-  - still - no cryptographic agility available to module users
+- `BWT`s require a fixed set of four metadata claims: `typ`, `iat`, `exp`, `kid`
 
 - in case of unexpected state marshalling ops return `null` rather than `throw`ing exceptions (that possibly leak sensitive information)

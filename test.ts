@@ -1,9 +1,12 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
+
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+
 import {
   encode,
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
+
 import * as BWT from "./mod.ts";
 
 function createMetadata(
