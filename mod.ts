@@ -17,7 +17,7 @@ import {
 //   !! encode maybe base64-encoded input keys to binary in any exposed funcs !!
 
 export interface Metadata {
-  typ: string;
+  typ: string |Uint8Array;
   kid: string;
   iat: number;
   exp: number;
@@ -62,16 +62,18 @@ interface MetadataAndNonce extends Metadata {
 
 const CURVE25519: Curve25519 = new Curve25519();
 const BASE64: RegExp = /base64/i;
+const KID_BYTES: number = 16;
+const MAX_TOKEN_SIZE: number = 4096;
 
-/** Transforms any string to binary props is the key is not "kid". */
+/** Transforms any string to binary props if it is not "kid", stays string. */
 function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
   const clone: PeerPublicKey = { ...ppk };
 
-  if (typeof clone.kid !== "string") {
+  if (clone.kid instanceof Uint8Array) {
     clone.kid = decode(clone.kid, "base64");
   }
 
-  if (typeof clone.pk === "string") {
+  if (clone.pk === "string") {
     clone.pk = encode(clone.pk);
   }
 
@@ -79,9 +81,9 @@ function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
 }
 
 function normalizeMetadata(metadata: Metadata): Metadata {
-  const clone: Metadata = { ...metadata } as Metadata;
+  const clone: Metadata = { ...metadata };
 
-  if (typeof clone.kid !== "string") {
+  if (clone.kid && typeof clone.kid !== "string") {
     clone.kid = decode(clone.kid, "base64");
   }
 
@@ -135,8 +137,7 @@ function isValidMetadata(x: any): boolean {
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
     x.kid &&
-    // TODO: assert length equals 16 bytes
-    x.kid.length &&
+    x.kid.length === KID_BYTES &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
     Number.isFinite(x.iat) &&
@@ -153,11 +154,11 @@ function isValidSecretKey(x: Uint8Array): boolean {
 }
 
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
-  return x && x.kid.length && x.pk.length === PUBLIC_KEY_BYTES;
+  return x && x.kid.length === KID_BYTES && x.pk.length === PUBLIC_KEY_BYTES;
 }
 
 function isValidToken(x: string): boolean {
-  return x && x.length < 4096; // enforce some plausible min length
+  return x && x.length <= MAX_TOKEN_SIZE;
 }
 
 function deriveSharedKeyProto(
@@ -220,15 +221,16 @@ export function stringifier(
   ownSecretKey: Uint8Array,
   defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
+  if (!isValidSecretKey(ownSecretKey)) {
+    return null;
+  }
+  
   if (defaultPeerPublicKey) {
     defaultPeerPublicKey = normalizePeerPublicKey(defaultPeerPublicKey);
-  }
-
-  if (
-    !isValidSecretKey(ownSecretKey) ||
-    (defaultPeerPublicKey && !isValidPeerPublicKey(defaultPeerPublicKey))
-  ) {
-    return null;
+    
+    if (!isValidPeerPublicKey(defaultPeerPublicKey)) {
+      return null;
+    }
   }
 
   const nonceGenerator: Generator = createNonceGenerator();
@@ -246,20 +248,22 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (metadata) {
-      metadata = normalizeMetadata(metadata);
+    if ( !metadata || !payload) {
+      return null
+    }
+    
+    metadata = normalizeMetadata(metadata);
+    
+    if (!isValidMetadata(metadata)) {
+      return null
     }
 
     if (peerPublicKey) {
       peerPublicKey = normalizePeerPublicKey(peerPublicKey);
-    }
-
-    if (
-      !isValidMetadata(metadata) ||
-      !payload ||
-      (peerPublicKey && !isValidPeerPublicKey(peerPublicKey))
-    ) {
-      return null;
+      
+      if (!isValidPeerPublicKey(peerPublicKey)) {
+        return null
+      }
     }
 
     let sharedKey: Uint8Array;
@@ -297,15 +301,16 @@ export function parser(
   ownSecretKey: Uint8Array,
   ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
+  if (!isValidSecretKey(ownSecretKey)) {
+    return null
+  }
+  
   if (defaultPeerPublicKeys.length) {
     defaultPeerPublicKeys = defaultPeerPublicKeys.map(normalizePeerPublicKey);
-  }
-
-  if (
-    !isValidSecretKey(ownSecretKey) ||
-    !defaultPeerPublicKeys.every(isValidPeerPublicKey)
-  ) {
-    return null;
+    
+    if (!defaultPeerPublicKeys.every(isValidPeerPublicKey)) {
+      return null;
+    }  
   }
 
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
@@ -320,12 +325,16 @@ export function parser(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
+    if (!isValidToken(token)) {
+      return null;
+    }
+    
     if (peerPublicKeys.length) {
       peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
-    }
-
-    if (!isValidToken(token) || !peerPublicKeys.every(isValidPeerPublicKey)) {
-      return null;
+      
+      if (!peerPublicKeys.every(isValidPeerPublicKey)) {
+        return null;
+      }
     }
 
     let sharedKey: Uint8Array;

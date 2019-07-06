@@ -1,6 +1,10 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import * as base64 from "https://denopkg.com/chiefbiiko/base64/mod.ts";
+// import * as base64 from "https://denopkg.com/chiefbiiko/base64/mod.ts";
+import {
+  encode,
+  decode
+} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 import * as BWT from "./mod.ts";
 
 function createMetadata(...sources: Object[]): BWT.Metadata {
@@ -19,21 +23,21 @@ function createPayload(...sources: BWT.Payload[]): BWT.Payload {
   return Object.assign({ fraud: "fraud" }, ...sources);
 }
 
-function stringifyKid(
-  keypair: BWT.KeyPair
-): { sk: Uint8Array; pk: Uint8Array; kid: string } {
-  return {
-    sk: keypair.sk,
-    pk: keypair.pk,
-    kid: base64.fromUint8Array(keypair.kid)
-  };
-}
+// function stringifyKid(
+//   keypair: BWT.KeyPair
+// ): { sk: Uint8Array; pk: Uint8Array; kid: string } {
+//   return {
+//     sk: keypair.sk,
+//     pk: keypair.pk,
+//     kid: base64.fromUint8Array(keypair.kid)
+//   };
+// }
 
 interface Party {
   name: string;
-  kid: string;
-  sk: Uint8Array;
-  pk: Uint8Array;
+  kid: string | Uint8Array;
+  sk:string |  Uint8Array;
+  pk:string |  Uint8Array;
   stringify?: BWT.Stringify;
   parse?: BWT.Parse;
 }
@@ -42,25 +46,25 @@ const dec: TextDecoder = new TextDecoder();
 const enc: TextEncoder = new TextEncoder();
 
 const a: Party = {
-  ...stringifyKid(BWT.generateKeys()),
+  ...BWT.generateKeys(),
   stringify: null,
   name: "alice"
 };
 
 const b: Party = {
-  ...stringifyKid(BWT.generateKeys()),
+  ...BWT.generateKeys(),
   parse: null,
   name: "bob"
 };
 
 const c: Party = {
-  ...stringifyKid(BWT.generateKeys()),
+  ...BWT.generateKeys(),
   parse: null,
   name: "chiefbiiko"
 };
 
 const d: Party = {
-  ...stringifyKid(BWT.generateKeys()),
+  ...BWT.generateKeys(),
   parse: null,
   name: "djb"
 };
@@ -156,6 +160,18 @@ test({
       kid: a.kid,
       pk: a.pk
     });
+    assertEquals(metadata, inputMetadata);
+    assertEquals(payload, inputPayload);
+  }
+});
+
+test({
+  name: "metadata.kid and all PeerPublicKey props can be binary or base64",
+  fn(): void {
+    const inputMetadata: BWT.Metadata = createMetadata({ kid: decode(a.kid, "base64") });
+    const inputPayload: BWT.Payload = createPayload();
+    const token: string = a.stringify(inputMetadata, inputPayload);
+    const { metadata, payload }: BWT.Contents = b.parse(token);
     assertEquals(metadata, inputMetadata);
     assertEquals(payload, inputPayload);
   }
@@ -307,10 +323,10 @@ test({
     let token: string = a.stringify(inputMetadata, inputPayload);
     const parts: string[] = token.split(".");
     const metadata: { [key: string]: number | string } = JSON.parse(
-      dec.decode(base64.toUint8Array(parts[0]))
+      dec.decode(encode(parts[0], "base64"))
     );
     metadata.nonce[0] ^= 0x99;
-    parts[0] = base64.fromUint8Array(enc.encode(JSON.stringify(metadata)));
+    parts[0] = decode(enc.encode(JSON.stringify(metadata)), "base64");
     token = parts.join(".");
     assertEquals(b.parse(token), null);
   }
@@ -323,9 +339,9 @@ test({
     const inputPayload: BWT.Payload = createPayload();
     let token: string = a.stringify(inputMetadata, inputPayload);
     const parts: string[] = token.split(".");
-    let corruptTag: Uint8Array = base64.toUint8Array(parts[2]);
+    let corruptTag: Uint8Array = encode(parts[2], "base64");
     corruptTag[0] ^= 0x99;
-    parts[2] = base64.fromUint8Array(corruptTag);
+    parts[2] = decode(corruptTag, "base64");
     token = parts.join(".");
     assertEquals(b.parse(token), null);
   }
@@ -338,9 +354,9 @@ test({
     const inputPayload: BWT.Payload = createPayload();
     let token: string = a.stringify(inputMetadata, inputPayload);
     const parts: string[] = token.split(".");
-    let corruptCiphertext: Uint8Array = base64.toUint8Array(parts[1]);
+    let corruptCiphertext: Uint8Array = encode(parts[1], "base64");
     corruptCiphertext[0] ^= 0x99;
-    parts[1] = base64.fromUint8Array(corruptCiphertext);
+    parts[1] = decode(corruptCiphertext, "base64");
     token = parts.join(".");
     assertEquals(b.parse(token), null);
   }
