@@ -9,10 +9,10 @@ import {
 
 import * as BWT from "./mod.ts";
 
-function createMetadata(
+function createHeader(
   source: { [key: string]: number | Uint8Array | string } = {}
-): BWT.Metadata {
-  // Normalize kids to strings as parse returns a base64 string metadata.kid.
+): BWT.Header {
+  // Normalize kids to strings as parse returns a base64 string header.kid.
   // Doing this for assertEqual reasons.
   // bwt actually allows base64 strings or buffers as inputs for binary stuff.
   if (source.kid instanceof Uint8Array) {
@@ -96,14 +96,14 @@ d.parse = BWT.parser(d.sk, {
 test({
   name: "alice and bob",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    const token: string = a.stringify(inputMetadata, inputPayload);
+    const token: string = a.stringify(inputHeader, inputPayload);
 
-    const { metadata, payload }: BWT.Contents = b.parse(token);
+    const { header, payload }: BWT.Contents = b.parse(token);
 
-    assertEquals(metadata, inputMetadata);
+    assertEquals(header, inputHeader);
     assertEquals(payload, inputPayload);
   }
 });
@@ -111,18 +111,18 @@ test({
 test({
   name: "parse from multiple peers",
   fn(): void {
-    const aliceInputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const aliceInputHeader: BWT.Header = createHeader({ kid: a.kid });
 
-    const chiefbiikoInputMetadata: BWT.Metadata = createMetadata({
+    const chiefbiikoInputHeader: BWT.Header = createHeader({
       kid: c.kid
     });
 
     const inputPayload: BWT.Payload = createPayload();
 
-    const aliceToken: string = a.stringify(aliceInputMetadata, inputPayload);
+    const aliceToken: string = a.stringify(aliceInputHeader, inputPayload);
 
     const chiefbiikoToken: string = c.stringify(
-      chiefbiikoInputMetadata,
+      chiefbiikoInputHeader,
       inputPayload
     );
 
@@ -130,9 +130,9 @@ test({
 
     const fromChiefbiiko: BWT.Contents = b.parse(chiefbiikoToken);
 
-    assertEquals(fromAlice.metadata, aliceInputMetadata);
+    assertEquals(fromAlice.header, aliceInputHeader);
     assertEquals(fromAlice.payload, inputPayload);
-    assertEquals(fromChiefbiiko.metadata, chiefbiikoInputMetadata);
+    assertEquals(fromChiefbiiko.header, chiefbiikoInputHeader);
     assertEquals(fromChiefbiiko.payload, inputPayload);
   }
 });
@@ -140,17 +140,17 @@ test({
 test({
   name: "stringify with particular public key",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: c.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: c.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    const token: string = c.stringify(inputMetadata, inputPayload, {
+    const token: string = c.stringify(inputHeader, inputPayload, {
       kid: d.kid,
       pk: d.pk
     });
 
-    const { metadata, payload }: BWT.Contents = d.parse(token);
+    const { header, payload }: BWT.Contents = d.parse(token);
 
-    assertEquals(metadata, inputMetadata);
+    assertEquals(header, inputHeader);
     assertEquals(payload, inputPayload);
   }
 });
@@ -158,43 +158,43 @@ test({
 test({
   name: "parse with particular public key",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    const token: string = a.stringify(inputMetadata, inputPayload, {
+    const token: string = a.stringify(inputHeader, inputPayload, {
       kid: d.kid,
       pk: d.pk
     });
 
-    const { metadata, payload }: BWT.Contents = d.parse(token, {
+    const { header, payload }: BWT.Contents = d.parse(token, {
       kid: a.kid,
       pk: a.pk
     });
 
-    assertEquals(metadata, inputMetadata);
+    assertEquals(header, inputHeader);
     assertEquals(payload, inputPayload);
   }
 });
 
 test({
-  name: "metadata.kid and all PeerPublicKey props can be binary or base64",
+  name: "header.kid and all PeerPublicKey props can be binary or base64",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       kid: decode(a.kid as Uint8Array, "base64")
     });
     const inputPayload: BWT.Payload = createPayload();
 
-    const token: string = a.stringify(inputMetadata, inputPayload);
+    const token: string = a.stringify(inputHeader, inputPayload);
 
-    const { metadata, payload }: BWT.Contents = b.parse(token);
+    const { header, payload }: BWT.Contents = b.parse(token);
 
-    assertEquals(metadata, inputMetadata);
+    assertEquals(header, inputHeader);
     assertEquals(payload, inputPayload);
   }
 });
 
 test({
-  name: "stringify nulls if metadata is null",
+  name: "stringify nulls if header is null",
   fn(): void {
     assertEquals(a.stringify(null, createPayload()), null);
   }
@@ -203,32 +203,32 @@ test({
 test({
   name: "stringify nulls if payload is null",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
 
-    assertEquals(a.stringify(inputMetadata, null), null);
+    assertEquals(a.stringify(inputHeader, null), null);
   }
 });
 
 test({
   name: "stringify nulls if version is unsupported",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       typ: "BWTv419",
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "parse nulls if kid is unknown",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       kid: "deadbeefdeadbeef"
     });
 
-    const token: string = a.stringify(inputMetadata, createPayload());
+    const token: string = a.stringify(inputHeader, createPayload());
 
     assertEquals(b.parse(token), null);
   }
@@ -237,131 +237,131 @@ test({
 test({
   name: "stringify nulls if kid is falsy",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: "" });
+    const inputHeader: BWT.Header = createHeader({ kid: "" });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if iat is negative",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ iat: -1, kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ iat: -1, kid: a.kid });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if iat is NaN",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       iat: NaN,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if iat is Infinity",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       iat: Infinity,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if iat is null",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       iat: null,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if exp is negative",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ exp: -1, kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ exp: -1, kid: a.kid });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if exp is NaN",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       exp: NaN,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if exp is Infinity",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       exp: Infinity,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "stringify nulls if exp is null",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       exp: null,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "BWT ops null if exp is due",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({
+    const inputHeader: BWT.Header = createHeader({
       exp: Date.now() - 1,
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputMetadata, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createPayload()), null);
   }
 });
 
 test({
   name: "parse nulls if nonce is corrupt",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    let token: string = a.stringify(inputMetadata, inputPayload);
+    let token: string = a.stringify(inputHeader, inputPayload);
 
     const parts: string[] = token.split(".");
 
-    const metadata: { [key: string]: number | string } = JSON.parse(
+    const header: { [key: string]: number | string } = JSON.parse(
       decode(encode(parts[0], "base64"), "utf8")
     );
 
-    metadata.nonce[0] ^= 0x99;
+    header.nonce[0] ^= 0x99;
 
-    parts[0] = decode(encode(JSON.stringify(metadata), "utf8"), "base64");
+    parts[0] = decode(encode(JSON.stringify(header), "utf8"), "base64");
 
     token = parts.join(".");
 
@@ -372,10 +372,10 @@ test({
 test({
   name: "parse nulls if tag is corrupt",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    let token: string = a.stringify(inputMetadata, inputPayload);
+    let token: string = a.stringify(inputHeader, inputPayload);
 
     const parts: string[] = token.split(".");
 
@@ -394,10 +394,10 @@ test({
 test({
   name: "parse nulls if ciphertext is corrupt",
   fn(): void {
-    const inputMetadata: BWT.Metadata = createMetadata({ kid: a.kid });
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
-    let token: string = a.stringify(inputMetadata, inputPayload);
+    let token: string = a.stringify(inputHeader, inputPayload);
 
     const parts: string[] = token.split(".");
 

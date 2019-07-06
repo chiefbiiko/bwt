@@ -12,14 +12,14 @@ import {
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
 
 /**
- * BWT metadata object.
- * 
+ * BWT header object.
+ *
  * typ must be a supported BWT version tag, currently that is "BWTv0" only.
  * iat and exp denote the issued-at and expiry ms timestamps of a token.
  * kid is the public key identifier of the issuing party. base64 encoded kid
  * strings are supported.
  */
-export interface Metadata {
+export interface Header {
   typ: string;
   iat: number;
   exp: number;
@@ -33,13 +33,13 @@ export interface Payload {
 
 /** Parsed contents of a token. */
 export interface Contents {
-  metadata: Metadata;
+  header: Header;
   payload: Payload;
 }
 
 /** BWT stringify function. */
 export interface Stringify {
-  (metadata: Metadata, payload: Payload, peerPublicKey?: PeerPublicKey): string;
+  (header: Header, payload: Payload, peerPublicKey?: PeerPublicKey): string;
 }
 
 /** BWT parse function. */
@@ -55,9 +55,9 @@ export interface Parse {
  * kid is a 16-byte key identifer for the public key.
  *
  * Any of the above properties can either be buffers or base64 strings.
-*/
+ */
 export interface KeyPair {
-    sk: string | Uint8Array;
+  sk: string | Uint8Array;
   pk: string | Uint8Array;
   kid: string | Uint8Array;
 }
@@ -71,7 +71,7 @@ export interface KeyPair {
  */
 export interface PeerPublicKey {
   pk: string | Uint8Array;
-    kid: string | Uint8Array;
+  kid: string | Uint8Array;
   name?: string | Uint8Array;
 }
 
@@ -84,10 +84,11 @@ export const SECRET_KEY_BYTES: number = 32;
 /** Byte length of a Curve25519 public key. */
 export const PUBLIC_KEY_BYTES: number = 32;
 
-/** Internal object representation adding a nonce to a metadata object. */
-interface MetadataAndNonce extends Metadata {
+/** Internal object representation adding a nonce to a header object. */
+interface HeaderAndNonce extends Header {
   nonce: number[];
 }
+
 /** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
 
@@ -100,7 +101,6 @@ const KID_BYTES_BASE64: number = 24;
 /** Maximum allowed number of characters of a token. */
 const MAX_TOKEN_LENGTH: number = 4096;
 
-/** Transforms any string to binary props if it is not "kid", stays string. */
 /**
  * Normalizes a peer pubilc key object by assuring its kid is a base64 string
  * and ensuring that its pk prop is a Uint8Array.
@@ -119,9 +119,9 @@ function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
   return clone;
 }
 
-/** Normalizes a metadata object by assuring its kid is a base64 string. */
-function normalizeMetadata(metadata: Metadata): Metadata {
-  const clone: Metadata = { ...metadata };
+/** Normalizes a header object by assuring its kid is a base64 string. */
+function normalizeHeader(header: Header): Header {
+  const clone: Header = { ...header };
 
   if (clone.kid && typeof clone.kid !== "string") {
     clone.kid = decode(clone.kid, "base64");
@@ -152,12 +152,12 @@ function toPublicKeyMap(
   return map;
 }
 
-/** Assembles a merges object from a metadata object and a nonce. */
-function assembleMetadataAndNonce(
-  metadata: Metadata,
+/** Assembles a merges object from a header object and a nonce. */
+function assembleHeaderAndNonce(
+  header: Header,
   nonce: Uint8Array
-): MetadataAndNonce {
-  return { ...metadata, nonce: Array.from(nonce) };
+): HeaderAndNonce {
+  return { ...header, nonce: Array.from(nonce) };
 }
 
 /** Concatenates aad, ciphertext, and tag to a token. */
@@ -175,8 +175,8 @@ function assembleToken(
   );
 }
 
-/** Whether given input is a valid BWT metadata object. */
-function isValidMetadata(x: any): boolean {
+/** Whether given input is a valid BWT header object. */
+function isValidHeader(x: any): boolean {
   const now: number = Date.now();
   return (
     x &&
@@ -207,7 +207,7 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
 }
 
 /** Whether given input string complies to the maximum BWT token length. */
-function isValidToken(x: string): boolean {
+function hasValidTokenLength(x: string): boolean {
   return x && x.length <= MAX_TOKEN_LENGTH;
 }
 
@@ -273,7 +273,7 @@ export function generateKeys(outputEncoding?: string): KeyPair {
  * Creates a BWT stringify function.
  *
  * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
- * defaultPeerPublicKey can be a peer public key that shall be used as the 
+ * defaultPeerPublicKey can be a peer public key that shall be used as the
  * default for all subsequent invocations of the returned stringify function.
  */
 export function stringifier(
@@ -307,26 +307,26 @@ export function stringifier(
   );
 
   /**
-   * Stringifies metadata and payload to an authenticated and encrypted token.
-   * 
-   * metadata must be a BWT metadata object.
+   * Stringifies header and payload to an authenticated and encrypted token.
+   *
+   * header must be a BWT header object.
    * payload must be a serializable object with string keys
-   * peerPublicKey must be provided if a defaultPeerPublicKey has not been 
-   * passed to BWT::stringifier. It can also be used to override a default peer 
+   * peerPublicKey must be provided if a defaultPeerPublicKey has not been
+   * passed to BWT::stringifier. It can also be used to override a default peer
    * public key for an invocation of the stringify function.
-  */
+   */
   return function stringify(
-    metadata: Metadata,
+    header: Header,
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (!metadata || !payload) {
+    if (!header || !payload) {
       return null;
     }
 
-    metadata = normalizeMetadata(metadata);
+    header = normalizeHeader(header);
 
-    if (!isValidMetadata(metadata)) {
+    if (!isValidHeader(header)) {
       return null;
     }
 
@@ -340,7 +340,7 @@ export function stringifier(
 
     let sharedKey: Uint8Array;
     let nonce: Uint8Array;
-    let metadataAndNonce: MetadataAndNonce;
+    let headerAndNonce: HeaderAndNonce;
     let aad: Uint8Array;
     let plaintext: Uint8Array;
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
@@ -352,8 +352,8 @@ export function stringifier(
         peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
       );
       nonce = nonceGenerator.next().value;
-      metadataAndNonce = assembleMetadataAndNonce(metadata, nonce);
-      aad = encode(JSON.stringify(metadataAndNonce), "utf8");
+      headerAndNonce = assembleHeaderAndNonce(header, nonce);
+      aad = encode(JSON.stringify(headerAndNonce), "utf8");
       plaintext = encode(JSON.stringify(payload), "utf8");
       sealed = seal(sharedKey, nonce, plaintext, aad);
       token = assembleToken(aad, sealed.ciphertext, sealed.tag);
@@ -361,7 +361,7 @@ export function stringifier(
       return null;
     }
 
-    if (!isValidToken(token)) {
+    if (!hasValidTokenLength(token)) {
       return null;
     }
 
@@ -371,7 +371,7 @@ export function stringifier(
 
 /**
  * Creates a BWT parse function.
- * 
+ *
  * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
  * defaultPeerPublicKeys can be a peer public key collection that shall be used
  * to lookup public keys by key identifiers for all subsequent invocations of
@@ -408,12 +408,12 @@ export function parser(
   /**
    * Parses the contents of a BWT token.
    *
-   * In case any part of the token is corrupt, it cannot be authenticated or 
+   * In case any part of the token is corrupt, it cannot be authenticated or
    * encrypted, or any other unexpected state is encountered null is returned.
    *
    * token must be a BWT token.
-   * peerPublicKeys must be provided if no default peer public keys have been 
-   * passed to BWT::parser. This collection can also be used to override the 
+   * peerPublicKeys must be provided if no default peer public keys have been
+   * passed to BWT::parser. This collection can also be used to override the
    * public key lookup space for the current parse invocation.
    *
    */
@@ -421,7 +421,7 @@ export function parser(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
-    if (!isValidToken(token)) {
+    if (!hasValidTokenLength(token)) {
       return null;
     }
 
@@ -436,7 +436,7 @@ export function parser(
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
-    let metadataAndNonce: MetadataAndNonce;
+    let headerAndNonce: HeaderAndNonce;
     let nonce: Uint8Array;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
@@ -446,9 +446,9 @@ export function parser(
     try {
       parts = token.split(".");
       aad = encode(parts[0], "base64");
-      metadataAndNonce = JSON.parse(decode(aad, "utf8"));
-      nonce = Uint8Array.from(metadataAndNonce.nonce);
-      sharedKey = deriveSharedKey(metadataAndNonce.kid, ...peerPublicKeys);
+      headerAndNonce = JSON.parse(decode(aad, "utf8"));
+      nonce = Uint8Array.from(headerAndNonce.nonce);
+      sharedKey = deriveSharedKey(headerAndNonce.kid, ...peerPublicKeys);
       ciphertext = encode(parts[1], "base64");
       tag = encode(parts[2], "base64");
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
@@ -457,12 +457,12 @@ export function parser(
       return null;
     }
 
-    if (!payload || !isValidMetadata(metadataAndNonce)) {
+    if (!payload || !isValidHeader(headerAndNonce)) {
       return null;
     }
 
-    delete metadataAndNonce.nonce;
+    delete headerAndNonce.nonce;
 
-    return { metadata: metadataAndNonce as Metadata, payload };
+    return { header: headerAndNonce as Header, payload };
   };
 }

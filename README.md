@@ -16,6 +16,6 @@
 
 - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
   
-- `BWT`s require a fixed set of four metadata claims: `typ`, `iat`, `exp`, `kid`
+- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
 
 - in case of unexpected state marshalling ops return `null` rather than `throw`ing exceptions (that possibly leak sensitive information)
