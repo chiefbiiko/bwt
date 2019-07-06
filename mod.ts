@@ -26,6 +26,76 @@ export interface Header {
   kid: string | Uint8Array;
 }
 
+// /** Reads an unsigned int from four little endian bytes starting at offset. */
+// export function readUint32LE(buf: Uint8Array, offset: number = 0): number {
+//   return buf[offset] & 0xff | (buf[offset + 1] << 8) & 0xff | (buf[offset + 2] << 16) & 0xff | (buf[offset + 3] << 24)  & 0xff
+// }
+// 
+// /** Writes an unsigned int to four little endian bytes starting at offset. */
+// export function writeUint32LE(buf: Uint8Array,int: number, offset: number = 0): number {
+//   buf[offset] = int & 0xff
+//   buf[offset + 1] = int >> 8 & 0xff;
+//   buf[offset + 2] = int >> 16 & 0xff
+//   buf[offset + 3] = int >> 24 & 0xff
+// 
+//   return buf.byteLength - offset;
+// }
+
+/** "BWT" as buffer. */
+const BWT_BUF: Uint8Array = encode("BWT", "utf8");
+
+/** Byte length of a serialized header. */
+const HEADER_BUFFER_BYTES: number = 48;
+
+/** Converts a header and nonce to a buffer. */
+function headerToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
+  
+  // console.error(">>>>>>>>>>>>>>>>>>>> headerToBuffer headerAndNonce", headerAndNonce);
+  
+  const buf: Uint8Array = new Uint8Array(HEADER_BUFFER_BYTES);
+  const view: DataView = new DataView(buf.buffer);
+  
+  const version: number = parseInt(headerAndNonce.typ[headerAndNonce.typ.length - 1]);
+  
+  buf.set(BWT_BUF, 0);
+  buf[3] = version;
+  
+  // writeUint32LE(buf, headerAndNonce.iat, 4);
+  // writeUint32LE(buf, headerAndNonce.exp, 8);
+  view.setBigUint64(4,BigInt(headerAndNonce.iat), false);
+  view.setBigUint64(12,BigInt( headerAndNonce.exp), false);
+  
+  buf.set(typeof headerAndNonce.kid === "string" ? encode(headerAndNonce.kid, "base64") : headerAndNonce.kid, 20);
+  buf.set(headerAndNonce.nonce, 36);
+  
+  // console.error(">>>>>>>>>>>>>>>>>>>> buf", decode(buf, "hex"));
+  
+  return buf;
+}
+
+/** Converts a buffer to a header and nonce. */
+function bufferToHeader(buf: Uint8Array): HeaderAndNonce {
+  const view: DataView = new DataView(buf.buffer);
+  
+  // console.error(">>>>>>>>>>>>>>>>>>>> bufferToHeader buf", decode(buf, "hex"));
+
+  const doc: {[key:string]: any} = {};
+  
+  doc.typ = decode(buf.subarray(0, 3), "utf8") + "v" + buf[3];
+  
+  // doc.iat = readUint32LE(buf, 4);
+  // doc.exp = readUint32LE(buf, 8);
+  doc.iat = Number(view.getBigUint64(4, false));
+  doc.exp =Number( view.getBigUint64(12, false));
+  
+  doc.kid = decode(buf.subarray(20, 36), "base64");
+  doc.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
+  
+  // console.error(">>>>>>>>>>>>>>>>>>>> doc", doc);
+  
+  return doc as HeaderAndNonce;
+}
+
 /** BWT payload object. */
 export interface Payload {
   [key: string]: unknown;
@@ -86,7 +156,7 @@ export const PUBLIC_KEY_BYTES: number = 32;
 
 /** Internal object representation adding a nonce to a header object. */
 interface HeaderAndNonce extends Header {
-  nonce: number[];
+  nonce: Uint8Array;
 }
 
 /** Global Curve25519 instance provding a scalar multiplication op. */
@@ -152,13 +222,13 @@ function toPublicKeyMap(
   return map;
 }
 
-/** Assembles a merges object from a header object and a nonce. */
-function assembleHeaderAndNonce(
-  header: Header,
-  nonce: Uint8Array
-): HeaderAndNonce {
-  return { ...header, nonce: Array.from(nonce) };
-}
+// /** Assembles a merges object from a header object and a nonce. */
+// function assembleHeaderAndNonce(
+//   header: Header,
+//   nonce: Uint8Array
+// ): HeaderAndNonce {
+//   return { ...header, nonce };
+// }
 
 /** Concatenates aad, ciphertext, and tag to a token. */
 function assembleToken(
@@ -352,8 +422,10 @@ export function stringifier(
         peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
       );
       nonce = nonceGenerator.next().value;
-      headerAndNonce = assembleHeaderAndNonce(header, nonce);
-      aad = encode(JSON.stringify(headerAndNonce), "utf8");
+      // headerAndNonce = assembleHeaderAndNonce(header, nonce);
+      headerAndNonce = { ...header, nonce };
+      // aad = encode(JSON.stringify(headerAndNonce), "utf8");
+      aad = headerToBuffer(headerAndNonce);
       plaintext = encode(JSON.stringify(payload), "utf8");
       sealed = seal(sharedKey, nonce, plaintext, aad);
       token = assembleToken(aad, sealed.ciphertext, sealed.tag);
@@ -446,7 +518,8 @@ export function parser(
     try {
       parts = token.split(".");
       aad = encode(parts[0], "base64");
-      headerAndNonce = JSON.parse(decode(aad, "utf8"));
+      // headerAndNonce = JSON.parse(decode(aad, "utf8"));
+      headerAndNonce = bufferToHeader(aad);
       nonce = Uint8Array.from(headerAndNonce.nonce);
       sharedKey = deriveSharedKey(headerAndNonce.kid, ...peerPublicKeys);
       ciphertext = encode(parts[1], "base64");
