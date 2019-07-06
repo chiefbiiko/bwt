@@ -346,6 +346,35 @@ test({
 });
 
 test({
+  name: "parse nulls if aad is corrupt",
+  fn(): void {
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
+    const inputPayload: BWT.Payload = createPayload();
+
+    let token: string = a.stringify(inputHeader, inputPayload);
+
+    const parts: string[] = token.split(".");
+
+    // const header: { [key: string]: number | string } = JSON.parse(
+    //   decode(encode(parts[0], "base64"), "utf8")
+    // );
+    // 
+    // header.nonce[0] ^= 0x99;
+    // 
+    // parts[0] = decode(encode(JSON.stringify(header), "utf8"), "base64");
+    const headerBuf: Uint8Array = encode(parts[0], "base64");
+    
+    headerBuf[36] ^= 0x99;
+
+    parts[0] = decode(headerBuf, "base64");
+
+    token = parts.join(".");
+
+    assertEquals(b.parse(token), null);
+  }
+});
+
+test({
   name: "parse nulls if nonce is corrupt",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
