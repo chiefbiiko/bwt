@@ -17,7 +17,7 @@ import {
 //   !! encode maybe base64-encoded input keys to binary in any exposed funcs !!
 
 export interface Metadata {
-  typ: string |Uint8Array;
+  typ: string | Uint8Array;
   kid: string;
   iat: number;
   exp: number;
@@ -61,9 +61,9 @@ interface MetadataAndNonce extends Metadata {
 }
 
 const CURVE25519: Curve25519 = new Curve25519();
-const BASE64: RegExp = /base64/i;
-const KID_BYTES: number = 16;
-const MAX_TOKEN_SIZE: number = 4096;
+const BASE64_REGEX: RegExp = /base64/i;
+const KID_BYTES_BASE64: number = 24;
+const MAX_TOKEN_LENGTH: number = 4096;
 
 /** Transforms any string to binary props if it is not "kid", stays string. */
 function normalizePeerPublicKey(ppk: PeerPublicKey): PeerPublicKey {
@@ -137,7 +137,7 @@ function isValidMetadata(x: any): boolean {
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
     x.kid &&
-    x.kid.length === KID_BYTES &&
+    x.kid.length === KID_BYTES_BASE64 &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
     Number.isFinite(x.iat) &&
@@ -154,11 +154,13 @@ function isValidSecretKey(x: Uint8Array): boolean {
 }
 
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
-  return x && x.kid.length === KID_BYTES && x.pk.length === PUBLIC_KEY_BYTES;
+  return (
+    x && x.kid.length === KID_BYTES_BASE64 && x.pk.length === PUBLIC_KEY_BYTES
+  );
 }
 
 function isValidToken(x: string): boolean {
-  return x && x.length <= MAX_TOKEN_SIZE;
+  return x && x.length <= MAX_TOKEN_LENGTH;
 }
 
 function deriveSharedKeyProto(
@@ -196,7 +198,7 @@ function deriveSharedKeyProto(
 }
 
 export function generateKeys(outputEncoding?: string): KeyPair {
-  if (outputEncoding && !BASE64.test(outputEncoding)) {
+  if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
 
@@ -218,16 +220,20 @@ export function generateKeys(outputEncoding?: string): KeyPair {
 }
 
 export function stringifier(
-  ownSecretKey: Uint8Array,
+  ownSecretKey: string | Uint8Array,
   defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
+  if (typeof ownSecretKey === "string") {
+    ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
+  }
+
   if (!isValidSecretKey(ownSecretKey)) {
     return null;
   }
-  
+
   if (defaultPeerPublicKey) {
     defaultPeerPublicKey = normalizePeerPublicKey(defaultPeerPublicKey);
-    
+
     if (!isValidPeerPublicKey(defaultPeerPublicKey)) {
       return null;
     }
@@ -248,21 +254,21 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if ( !metadata || !payload) {
-      return null
+    if (!metadata || !payload) {
+      return null;
     }
-    
+
     metadata = normalizeMetadata(metadata);
-    
+
     if (!isValidMetadata(metadata)) {
-      return null
+      return null;
     }
 
     if (peerPublicKey) {
       peerPublicKey = normalizePeerPublicKey(peerPublicKey);
-      
+
       if (!isValidPeerPublicKey(peerPublicKey)) {
-        return null
+        return null;
       }
     }
 
@@ -298,19 +304,23 @@ export function stringifier(
 }
 
 export function parser(
-  ownSecretKey: Uint8Array,
+  ownSecretKey: string | Uint8Array,
   ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
-  if (!isValidSecretKey(ownSecretKey)) {
-    return null
+  if (typeof ownSecretKey === "string") {
+    ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
   }
-  
+
+  if (!isValidSecretKey(ownSecretKey)) {
+    return null;
+  }
+
   if (defaultPeerPublicKeys.length) {
     defaultPeerPublicKeys = defaultPeerPublicKeys.map(normalizePeerPublicKey);
-    
+
     if (!defaultPeerPublicKeys.every(isValidPeerPublicKey)) {
       return null;
-    }  
+    }
   }
 
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
@@ -328,10 +338,10 @@ export function parser(
     if (!isValidToken(token)) {
       return null;
     }
-    
+
     if (peerPublicKeys.length) {
       peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
-      
+
       if (!peerPublicKeys.every(isValidPeerPublicKey)) {
         return null;
       }
