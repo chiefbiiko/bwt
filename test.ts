@@ -431,4 +431,4 @@ test({
   }
 });
 
-runIfMain(import.meta, { parallel: true });
+runIfMain(import.meta);
