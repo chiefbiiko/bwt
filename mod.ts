@@ -108,16 +108,34 @@ interface InternalHeader extends Header {
   kidBuf: Uint8Array;
 }
 
+/** Reads given bytes as an unsigned big-endian int. */
+function bytesToTimestampBE(buf: Uint8Array): number {
+  return Number(
+    buf.reduce(
+      (acc: bigint, byte: number): bigint =>
+        (acc << 8n) | (BigInt(byte) & 255n),
+      0n
+    )
+  );
+}
+
+/** Writes given timestamp to big-endian bytes. */
+function timestampToBytesBE(b: bigint, out: Uint8Array): void {
+  for (let i: number = out.byteLength - 1; i >= 0; --i) {
+    out[i] = Number(b & 255n);
+    b >>= 8n;
+  }
+}
+
 /** Converts a header and nonce to a buffer. */
 function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
-  const dataView: DataView = new DataView(buf.buffer);
 
   buf.set(MAGIC_BWT_BUF, 0); // "BWT"
   buf[3] = parseInt(internalHeader.typ[4], 10); // version
 
-  dataView.setBigUint64(4, BigInt(internalHeader.iat), false); // iat
-  dataView.setBigUint64(12, BigInt(internalHeader.exp), false); // exp
+  timestampToBytesBE(BigInt(internalHeader.iat), buf.subarray(4, 12)); // iat
+  timestampToBytesBE(BigInt(internalHeader.exp), buf.subarray(12, 20)); // exp
 
   buf.set(internalHeader.kidBuf, 20); // kid
   buf.set(internalHeader.nonce, 36); // nonce
@@ -127,13 +145,11 @@ function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
 
 /** Converts a buffer to a header and nonce. */
 function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
-  const dataView: DataView = new DataView(buf.buffer);
-
   return [
     {
       typ: decode(buf.subarray(0, 3), "utf8") + "v" + buf[3],
-      iat: Number(dataView.getBigUint64(4, false)),
-      exp: Number(dataView.getBigUint64(12, false)),
+      iat: bytesToTimestampBE(buf.subarray(4, 12)),
+      exp: bytesToTimestampBE(buf.subarray(12, 20)),
       kid: decode(buf.subarray(20, 36), "base64")
     },
     buf.subarray(36, HEADER_BYTES)
