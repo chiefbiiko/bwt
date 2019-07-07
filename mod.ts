@@ -76,22 +76,16 @@ export interface PeerPublicKey {
 }
 
 /** Supported BWT versions. */
-export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
+export const SUPPORTED_VERSIONS: string[] = ["BWTv0"];
 
 /** Maximum allowed number of characters of a token. */
-export const MAX_BWT_SIZE: number = 4096;
+export const MAX_TOKEN_CHARS: number = 4096;
 
 /** Byte length of a Curve25519 secret key. */
 export const SECRET_KEY_BYTES: number = 32;
 
 /** Byte length of a Curve25519 public key. */
 export const PUBLIC_KEY_BYTES: number = 32;
-
-/** Internal object representation adding a nonce to a header object. */
-interface InternalHeader extends Header {
-  nonce?: Uint8Array;
-  kidBuf: Uint8Array;
-}
 
 /** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
@@ -100,21 +94,27 @@ const CURVE25519: Curve25519 = new Curve25519();
 const BASE64_REGEX: RegExp = /base64/i;
 
 /** Char count of a 16-byte buffer in base64. */
-const KID_BASE64_CHARS: number = 24;
-
-/** "BWT" as buffer. */
-const BWT_BUF: Uint8Array = encode("BWT", "utf8");
+const BASE64_KID_CHARS: number = 24;
 
 /** Byte length of a serialized header. */
-const HEADER_BUFFER_BYTES: number = 48;
+const HEADER_BYTES: number = 48;
+
+/** "BWT" as buffer. */
+const MAGIC_BWT_BUF: Uint8Array = encode("BWT", "utf8");
+
+/** Internal object representation adding a nonce to a header object. */
+interface InternalHeader extends Header {
+  nonce?: Uint8Array;
+  kidBuf: Uint8Array;
+}
 
 /** Converts a header and nonce to a buffer. */
 function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
-  const buf: Uint8Array = new Uint8Array(HEADER_BUFFER_BYTES);
+  const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
   const dataView: DataView = new DataView(buf.buffer);
 
-  buf.set(BWT_BUF, 0); // "BWT"
-  buf[3] = parseInt(internalHeader.typ[3], 10); // version
+  buf.set(MAGIC_BWT_BUF, 0); // "BWT"
+  buf[3] = parseInt(internalHeader.typ[4], 10); // version
 
   dataView.setBigUint64(4, BigInt(internalHeader.iat), false); // iat
   dataView.setBigUint64(12, BigInt(internalHeader.exp), false); // exp
@@ -136,7 +136,7 @@ function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
       exp: Number(dataView.getBigUint64(12, false)),
       kid: decode(buf.subarray(20, 36), "base64")
     },
-    buf.subarray(36, HEADER_BUFFER_BYTES)
+    buf.subarray(36, HEADER_BYTES)
   ];
 }
 
@@ -213,9 +213,9 @@ function isValidHeader(x: any): boolean {
   const now: number = Date.now();
   return (
     x &&
-    SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
+    SUPPORTED_VERSIONS.includes(x.typ) &&
     x.kid &&
-    x.kid.length === KID_BASE64_CHARS &&
+    x.kid.length === BASE64_KID_CHARS &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
     Number.isFinite(x.iat) &&
@@ -242,14 +242,14 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
     x &&
     x.kid &&
-    x.kid.length === KID_BASE64_CHARS &&
+    x.kid.length === BASE64_KID_CHARS &&
     x.pk.length === PUBLIC_KEY_BYTES
   );
 }
 
 /** Whether given input string complies to the maximum BWT token length. */
 function hasValidTokenLength(x: string): boolean {
-  return x && x.length <= MAX_BWT_SIZE;
+  return x && x.length <= MAX_TOKEN_CHARS;
 }
 
 /** Efficiently derives a shared key from recurring kid strings. */

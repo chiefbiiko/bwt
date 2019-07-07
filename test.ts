@@ -52,7 +52,7 @@ const b: Party = {
 
 const c: Party = {
   ...BWT.generateKeys(),
-  parse: null,
+  stringify: null,
   name: "chiefbiiko"
 };
 
@@ -174,7 +174,7 @@ test({
 });
 
 test({
-  name: "keys can can be binary or base64",
+  name: "keys can can be binary and/or base64",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
