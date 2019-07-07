@@ -182,7 +182,7 @@ test({
     const token: string = a.stringify(inputHeader, inputPayload);
 
     const { header, payload }: BWT.Contents = b.parse(token, {
-      pk: encode(a.pk as string, "base64"),
+      pk: decode(a.pk as Uint8Array, "base64"),
       kid: a.kid
     });
 

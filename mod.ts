@@ -291,7 +291,7 @@ function deriveSharedKeyProto(
 }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
-export function generateKeys(outputEncoding: string = "base64"): KeyPair {
+export function generateKeys(outputEncoding?: string): KeyPair {
   if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
