@@ -126,20 +126,18 @@ function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
 }
 
 /** Converts a buffer to a header and nonce. */
-function bufferToInternalHeader(buf: Uint8Array): InternalHeader {
+function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
   const dataView: DataView = new DataView(buf.buffer);
 
-  const internalHeader: InternalHeader = {} as InternalHeader;
-
-  internalHeader.typ = decode(buf.subarray(0, 3), "utf8") + "v" + buf[3];
-
-  internalHeader.iat = Number(dataView.getBigUint64(4, false));
-  internalHeader.exp = Number(dataView.getBigUint64(12, false));
-
-  internalHeader.kid = decode(buf.subarray(20, 36), "base64");
-  internalHeader.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
-
-  return internalHeader;
+  return [
+    {
+      typ: decode(buf.subarray(0, 3), "utf8") + "v" + buf[3],
+      iat: Number(dataView.getBigUint64(4, false)),
+      exp: Number(dataView.getBigUint64(12, false)),
+      kid: decode(buf.subarray(20, 36), "base64")
+    },
+    buf.subarray(36, HEADER_BUFFER_BYTES)
+  ];
 }
 
 /**
@@ -479,7 +477,8 @@ export function parser(
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
-    let internalHeader: InternalHeader;
+    let header: Header;
+    let nonce: Uint8Array;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
     let plaintext: Uint8Array;
@@ -490,20 +489,18 @@ export function parser(
       aad = encode(parts[0], "base64");
       ciphertext = encode(parts[1], "base64");
       tag = encode(parts[2], "base64");
-      internalHeader = bufferToInternalHeader(aad);
-      sharedKey = deriveSharedKey(internalHeader.kid, ...peerPublicKeys);
-      plaintext = open(sharedKey, internalHeader.nonce, ciphertext, aad, tag);
+      [header, nonce] = bufferToHeaderAndNonce(aad);
+      sharedKey = deriveSharedKey(header.kid, ...peerPublicKeys);
+      plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
       payload = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
     }
 
-    if (!payload || !isValidHeader(internalHeader)) {
+    if (!payload || !isValidHeader(header)) {
       return null;
     }
 
-    delete internalHeader.nonce;
-
-    return { header: internalHeader as Header, payload };
+    return { header, payload };
   };
 }
