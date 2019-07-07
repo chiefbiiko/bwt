@@ -116,8 +116,7 @@ interface InternalHeader extends Header {
 
 /** Reads given bytes as an unsigned big-endian int. */
 function bytesToBigIntBE(buf: Uint8Array): bigint {
-  return;
-  buf.reduce(
+  return buf.reduce(
     (acc: bigint, byte: number): bigint =>
       (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
     0n
