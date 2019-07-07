@@ -1,15 +1,15 @@
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 
 import {
-  encode,
-  decode
-} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
-
-import {
   seal,
   open,
   NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
+
+import {
+  encode,
+  decode
+} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
 /**
  * BWT header object.
@@ -100,13 +100,13 @@ const BASE64_KID_CHARS: number = 24;
 const HEADER_BYTES: number = 48;
 
 /** BigInt byte mask. */
-const BIGINT_BYTE_MASK:bigint = 255n;
+const BIGINT_BYTE_MASK: bigint = 255n;
 
 /** BigInt 8. */
 const BIGINT_BYTE_SHIFT: bigint = 8n;
 
 /** "BWT" as buffer. */
-const MAGIC_BWT_BUF: Uint8Array = encode("BWT", "utf8");
+const MAGIC_BWT0: Uint8Array = encode("BWT\0", "utf8");
 
 /** Internal object representation adding a nonce to a header object. */
 interface InternalHeader extends Header {
@@ -115,18 +115,17 @@ interface InternalHeader extends Header {
 }
 
 /** Reads given bytes as an unsigned big-endian int. */
-function bytesToTimestampBE(buf: Uint8Array): number {
-  return Number(
-    buf.reduce(
-      (acc: bigint, byte: number): bigint =>
-        (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
-      0n
-    )
+function bytesToBigIntBE(buf: Uint8Array): bigint {
+  return;
+  buf.reduce(
+    (acc: bigint, byte: number): bigint =>
+      (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
+    0n
   );
 }
 
 /** Writes given timestamp to big-endian bytes. */
-function timestampToBytesBE(b: bigint, out: Uint8Array): void {
+function bigintToBytesBE(b: bigint, out: Uint8Array): void {
   for (let i: number = out.byteLength - 1; i >= 0; --i) {
     out[i] = Number(b & BIGINT_BYTE_MASK);
     b >>= BIGINT_BYTE_SHIFT;
@@ -137,11 +136,10 @@ function timestampToBytesBE(b: bigint, out: Uint8Array): void {
 function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
-  buf.set(MAGIC_BWT_BUF, 0); // "BWT"
-  buf[3] = parseInt(internalHeader.typ[4], 10); // version
+  buf.set(MAGIC_BWT0, 0); // BWT0
 
-  timestampToBytesBE(BigInt(internalHeader.iat), buf.subarray(4, 12)); // iat
-  timestampToBytesBE(BigInt(internalHeader.exp), buf.subarray(12, 20)); // exp
+  bigintToBytesBE(BigInt(internalHeader.iat), buf.subarray(4, 12)); // iat
+  bigintToBytesBE(BigInt(internalHeader.exp), buf.subarray(12, 20)); // exp
 
   buf.set(internalHeader.kidBuf, 20); // kid
   buf.set(internalHeader.nonce, 36); // nonce
@@ -154,8 +152,8 @@ function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
   return [
     {
       typ: decode(buf.subarray(0, 3), "utf8") + "v" + buf[3],
-      iat: bytesToTimestampBE(buf.subarray(4, 12)),
-      exp: bytesToTimestampBE(buf.subarray(12, 20)),
+      iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
+      exp: Number(bytesToBigIntBE(buf.subarray(12, 20))),
       kid: decode(buf.subarray(20, 36), "base64")
     },
     buf.subarray(36, HEADER_BYTES)
