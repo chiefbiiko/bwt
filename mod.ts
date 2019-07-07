@@ -118,7 +118,7 @@ interface InternalHeader extends Header {
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
     (acc: bigint, byte: number): bigint =>
-      (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
+      acc << BIGINT_BYTE_SHIFT | BigInt(byte) & BIGINT_BYTE_MASK,
     0n
   );
 }
