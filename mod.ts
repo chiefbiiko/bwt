@@ -125,13 +125,13 @@ function bigintToBytesBE( b: bigint, out: Uint8Array): void {
 /** Converts a header and nonce to a buffer. */
 function headerAndNonceToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BUFFER_BYTES);
-  const view: DataView = new DataView(buf.buffer);
+  const dataView: DataView = new DataView(buf.buffer);
 
   buf.set(BWT_BUF, 0); // "BWT"
   buf[3] = parseInt(headerAndNonce.typ[3], 10); // version
 
-  view.setBigUint64(4, BigInt(headerAndNonce.iat), false); // iat
-  view.setBigUint64(12, BigInt(headerAndNonce.exp), false); // exp
+  dataView.setBigUint64(4, BigInt(headerAndNonce.iat), false); // iat
+  dataView.setBigUint64(12, BigInt(headerAndNonce.exp), false); // exp
 
   bigintToBytesBE(headerAndNonce.kid, buf.subarray(20, 36)); // kid
   buf.set(headerAndNonce.nonce, 36); // nonce
@@ -141,14 +141,14 @@ function headerAndNonceToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
 
 /** Converts a buffer to a header and nonce. */
 function bufferToHeaderAndNonce(buf: Uint8Array): HeaderAndNonce {
-  const view: DataView = new DataView(buf.buffer);
+  const dataView: DataView = new DataView(buf.buffer);
 
   const headerAndNonce: HeaderAndNonce = {} as HeaderAndNonce;
 
   headerAndNonce.typ = decode(buf.subarray(0, 3), "utf8") + "v" + buf[3];
 
-  headerAndNonce.iat = Number(view.getBigUint64(4, false));
-  headerAndNonce.exp = Number(view.getBigUint64(12, false));
+  headerAndNonce.iat = Number(dataView.getBigUint64(4, false));
+  headerAndNonce.exp = Number(dataView.getBigUint64(12, false));
 
   headerAndNonce.kid = bytesToBigIntBE(buf.subarray(20, 36))
   headerAndNonce.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
@@ -355,13 +355,7 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (!header || !payload) {
-      return null;
-    }
-
-    // header = normalizeHeader(header);
-
-    if (!isValidHeader(header)) {
+    if (!isValidHeader(header) || !payload) {
       return null;
     }
 
@@ -472,7 +466,6 @@ export function parser(
     let parts: string[];
     let aad: Uint8Array;
     let headerAndNonce: HeaderAndNonce;
-    let nonce: Uint8Array;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
     let plaintext: Uint8Array;
@@ -481,12 +474,11 @@ export function parser(
     try {
       parts = token.split(".");
       aad = encode(parts[0], "base64");
-      headerAndNonce = bufferToHeaderAndNonce(aad);
-      nonce = Uint8Array.from(headerAndNonce.nonce);
-      sharedKey = deriveSharedKey(headerAndNonce.kid, ...peerPublicKeys);
       ciphertext = encode(parts[1], "base64");
       tag = encode(parts[2], "base64");
-      plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
+      headerAndNonce = bufferToHeaderAndNonce(aad);
+      sharedKey = deriveSharedKey(headerAndNonce.kid, ...peerPublicKeys);
+      plaintext = open(sharedKey, headerAndNonce.nonce, ciphertext, aad, tag);
       payload = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
