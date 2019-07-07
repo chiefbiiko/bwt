@@ -99,6 +99,12 @@ const BASE64_KID_CHARS: number = 24;
 /** Byte length of a serialized header. */
 const HEADER_BYTES: number = 48;
 
+/** BigInt byte mask. */
+const BIGINT_BYTE_MASK:bigint = 255n;
+
+/** BigInt 8. */
+const BIGINT_BYTE_SHIFT: bigint = 8n;
+
 /** "BWT" as buffer. */
 const MAGIC_BWT_BUF: Uint8Array = encode("BWT", "utf8");
 
@@ -113,7 +119,7 @@ function bytesToTimestampBE(buf: Uint8Array): number {
   return Number(
     buf.reduce(
       (acc: bigint, byte: number): bigint =>
-        (acc << 8n) | (BigInt(byte) & 255n),
+        (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
       0n
     )
   );
@@ -122,8 +128,8 @@ function bytesToTimestampBE(buf: Uint8Array): number {
 /** Writes given timestamp to big-endian bytes. */
 function timestampToBytesBE(b: bigint, out: Uint8Array): void {
   for (let i: number = out.byteLength - 1; i >= 0; --i) {
-    out[i] = Number(b & 255n);
-    b >>= 8n;
+    out[i] = Number(b & BIGINT_BYTE_MASK);
+    b >>= BIGINT_BYTE_SHIFT;
   }
 }
 
