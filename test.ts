@@ -10,14 +10,18 @@ import {
 import * as BWT from "./mod.ts";
 
 function createHeader(
-  source: { [key: string]: number | bigint | Uint8Array | string } = {}
+  source: { [key: string]: number | Uint8Array | string } = {}
 ): BWT.Header {
+  const kid: string =
+    source.kid instanceof Uint8Array
+      ? decode(source.kid, "base64")
+      : (source.kid as string);
   return {
     typ: "BWTv0",
-    kid: 0n,
     iat: Date.now(),
     exp: Date.now() + 419,
-    ...source
+    ...source,
+    kid
   };
 }
 
@@ -27,7 +31,7 @@ function createPayload(...sources: BWT.Payload[]): BWT.Payload {
 
 interface Party {
   name: string;
-  kid: bigint;
+  kid: string | Uint8Array;
   sk: string | Uint8Array;
   pk: string | Uint8Array;
   stringify?: BWT.Stringify;
@@ -172,14 +176,15 @@ test({
 test({
   name: "keys can can be binary or base64",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader(
-      { kid: a.kid}
-    );
+    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
     const inputPayload: BWT.Payload = createPayload();
 
     const token: string = a.stringify(inputHeader, inputPayload);
 
-    const { header, payload }: BWT.Contents = b.parse(token, { pk: decode(a.pk as Uint8Array, "base64"), kid: a.kid });
+    const { header, payload }: BWT.Contents = b.parse(token, {
+      pk: encode(a.pk as string, "base64"),
+      kid: a.kid
+    });
 
     assertEquals(header, inputHeader);
     assertEquals(payload, inputPayload);

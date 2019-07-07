@@ -23,7 +23,7 @@ export interface Header {
   typ: string;
   iat: number;
   exp: number;
-  kid: bigint;
+  kid: string | Uint8Array;
 }
 
 /** BWT payload object. */
@@ -59,7 +59,7 @@ export interface Parse {
 export interface KeyPair {
   sk: string | Uint8Array;
   pk: string | Uint8Array;
-  kid: bigint;
+  kid: string | Uint8Array;
 }
 
 /**
@@ -71,7 +71,7 @@ export interface KeyPair {
  */
 export interface PeerPublicKey {
   pk: string | Uint8Array;
-  kid: bigint;
+  kid: string | Uint8Array;
   name?: string | Uint8Array;
 }
 
@@ -79,7 +79,7 @@ export interface PeerPublicKey {
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 
 /** Maximum allowed number of characters of a token. */
-export const MAX_BWT_SIZE: number = Number(Deno.env().MAX_BWT_SIZE) || 4096;
+export const MAX_BWT_SIZE: number = 4096;
 
 /** Byte length of a Curve25519 secret key. */
 export const SECRET_KEY_BYTES: number = 32;
@@ -88,8 +88,9 @@ export const SECRET_KEY_BYTES: number = 32;
 export const PUBLIC_KEY_BYTES: number = 32;
 
 /** Internal object representation adding a nonce to a header object. */
-interface HeaderAndNonce extends Header {
-  nonce: Uint8Array;
+interface InternalHeader extends Header {
+  nonce?: Uint8Array;
+  kidBuf: Uint8Array;
 }
 
 /** Global Curve25519 instance provding a scalar multiplication op. */
@@ -98,75 +99,78 @@ const CURVE25519: Curve25519 = new Curve25519();
 /** One-time-compiled regex for checking outputEncoding params.*/
 const BASE64_REGEX: RegExp = /base64/i;
 
+/** Char count of a 16-byte buffer in base64. */
+const KID_BASE64_CHARS: number = 24;
+
 /** "BWT" as buffer. */
 const BWT_BUF: Uint8Array = encode("BWT", "utf8");
 
 /** Byte length of a serialized header. */
 const HEADER_BUFFER_BYTES: number = 48;
 
-/** Reads given bytes as an unsigned big-endian bigint. */
-function bytesToBigIntBE(buf: Uint8Array): bigint {
-  if (!buf || !buf.byteLength) {
-  return 0n;
-}
-
-  return buf.reduce((acc: bigint, byte:number): bigint => 
-    (acc << 8n) | (BigInt(byte) & 255n), 0n)
-}
-
-/** Writes given bigint to big-endian bytes. */
-function bigintToBytesBE( b: bigint, out: Uint8Array): void {
-  for (let i: number = out.byteLength  - 1; i >= 0 ; --i) {
-    out[i] = Number(b & 255n); 
-    b >>= 8n;
-  }
-}
-
 /** Converts a header and nonce to a buffer. */
-function headerAndNonceToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
+function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BUFFER_BYTES);
   const dataView: DataView = new DataView(buf.buffer);
 
   buf.set(BWT_BUF, 0); // "BWT"
-  buf[3] = parseInt(headerAndNonce.typ[3], 10); // version
+  buf[3] = parseInt(internalHeader.typ[3], 10); // version
 
-  dataView.setBigUint64(4, BigInt(headerAndNonce.iat), false); // iat
-  dataView.setBigUint64(12, BigInt(headerAndNonce.exp), false); // exp
+  dataView.setBigUint64(4, BigInt(internalHeader.iat), false); // iat
+  dataView.setBigUint64(12, BigInt(internalHeader.exp), false); // exp
 
-  bigintToBytesBE(headerAndNonce.kid, buf.subarray(20, 36)); // kid
-  buf.set(headerAndNonce.nonce, 36); // nonce
+  buf.set(internalHeader.kidBuf, 20); // kid
+  buf.set(internalHeader.nonce, 36); // nonce
 
   return buf;
 }
 
 /** Converts a buffer to a header and nonce. */
-function bufferToHeaderAndNonce(buf: Uint8Array): HeaderAndNonce {
+function bufferToInternalHeader(buf: Uint8Array): InternalHeader {
   const dataView: DataView = new DataView(buf.buffer);
 
-  const headerAndNonce: HeaderAndNonce = {} as HeaderAndNonce;
+  const internalHeader: InternalHeader = {} as InternalHeader;
 
-  headerAndNonce.typ = decode(buf.subarray(0, 3), "utf8") + "v" + buf[3];
+  internalHeader.typ = decode(buf.subarray(0, 3), "utf8") + "v" + buf[3];
 
-  headerAndNonce.iat = Number(dataView.getBigUint64(4, false));
-  headerAndNonce.exp = Number(dataView.getBigUint64(12, false));
+  internalHeader.iat = Number(dataView.getBigUint64(4, false));
+  internalHeader.exp = Number(dataView.getBigUint64(12, false));
 
-  headerAndNonce.kid = bytesToBigIntBE(buf.subarray(20, 36))
-  headerAndNonce.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
+  internalHeader.kid = decode(buf.subarray(20, 36), "base64");
+  internalHeader.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
 
-  return headerAndNonce;
+  return internalHeader;
 }
 
 /**
- * Normalizes a peer pubilc key object by assuring its kid is a Uint8Array
+ * Normalizes a peer pubilc key object by assuring its kid is a base64 string
  * and ensuring that its pk prop is a Uint8Array.
  */
 function normalizePeerPublicKey(peerPublicKey: PeerPublicKey): PeerPublicKey {
+  let clone: PeerPublicKey;
 
   if (typeof peerPublicKey.pk === "string") {
-      return { ...peerPublicKey, pk: encode(peerPublicKey.pk, "base64") };
+    clone = { ...peerPublicKey, pk: encode(peerPublicKey.pk, "base64") };
   }
 
-  return  peerPublicKey;
+  if (typeof peerPublicKey.kid !== "string") {
+    if (!clone) {
+      clone = { ...peerPublicKey, kid: decode(peerPublicKey.kid, "base64") };
+    } else {
+      clone.kid = decode(peerPublicKey.kid, "base64");
+    }
+  }
+
+  return clone || peerPublicKey;
+}
+
+/** Normalizes a header object by assuring its kid is a base64 string. */
+function normalizeHeader(header: Header): InternalHeader {
+  if (header.kid instanceof Uint8Array) {
+    return { ...header, kidBuf: header.kid, kid: decode(header.kid, "base64") };
+  } else if (typeof header.kid === "string") {
+    return { ...header, kidBuf: encode(header.kid, "base64"), kid: header.kid };
+  }
 }
 
 /** Creates a nonce generator that is based on the current timestamp. */
@@ -181,11 +185,11 @@ function* createNonceGenerator(): Generator {
 /** Transforms a collection of public keys to a map representation. */
 function toPublicKeyMap(
   ...peerPublicKeys: PeerPublicKey[]
-): Map<bigint, Uint8Array> {
-  const map: Map<bigint, Uint8Array> = new Map<bigint, Uint8Array>();
+): Map<string, Uint8Array> {
+  const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
 
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid, peerPublicKey.pk as Uint8Array);
+    map.set(peerPublicKey.kid as string, peerPublicKey.pk as Uint8Array);
   }
 
   return map;
@@ -212,7 +216,8 @@ function isValidHeader(x: any): boolean {
   return (
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
-    typeof x.kid === "bigint" &&
+    x.kid &&
+    x.kid.length === KID_BASE64_CHARS &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
     Number.isFinite(x.iat) &&
@@ -232,12 +237,15 @@ function isValidSecretKey(x: Uint8Array): boolean {
 /**
  *  Whether given input is a valid BWT peer public key.
  *
- * This function must be passed normalized peer public keys as it assumes a 
- * buffer pk prop for the byte length check. 
+ * This function must be passed normalized peer public keys as it assumes a
+ * buffer pk prop for the byte length check.
  */
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
-    x && x.kid && x.pk.length === PUBLIC_KEY_BYTES
+    x &&
+    x.kid &&
+    x.kid.length === KID_BASE64_CHARS &&
+    x.pk.length === PUBLIC_KEY_BYTES
   );
 }
 
@@ -249,10 +257,10 @@ function hasValidTokenLength(x: string): boolean {
 /** Efficiently derives a shared key from recurring kid strings. */
 function deriveSharedKeyProto(
   secretKey: Uint8Array,
-  sharedKeyCache: Map<bigint, Uint8Array>,
-  defaultPublicKeyMap: Map<bigint, Uint8Array>,
-  defaultKid: bigint,
-  kid: bigint = defaultKid,
+  sharedKeyCache: Map<string, Uint8Array>,
+  defaultPublicKeyMap: Map<string, Uint8Array>,
+  defaultKid: string,
+  kid: string = defaultKid,
   ...peerPublicKeySpace: PeerPublicKey[]
 ): Uint8Array {
   if (sharedKeyCache.has(kid)) {
@@ -276,13 +284,14 @@ function deriveSharedKeyProto(
   }
 
   const sharedKey: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
+
   sharedKeyCache.set(kid, sharedKey);
 
   return sharedKey;
 }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
-export function generateKeys(outputEncoding?: string): KeyPair {
+export function generateKeys(outputEncoding: string = "base64"): KeyPair {
   if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
@@ -291,13 +300,13 @@ export function generateKeys(outputEncoding?: string): KeyPair {
     crypto.getRandomValues(new Uint8Array(32))
   );
 
-  const kid: bigint = bytesToBigIntBE(crypto.getRandomValues(new Uint8Array(16)));
+  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
 
   if (outputEncoding) {
     return {
       sk: decode(keypair.sk, "base64"),
       pk: decode(keypair.pk, "base64"),
-      kid
+      kid: decode(kid, "base64")
     };
   }
 
@@ -336,7 +345,7 @@ export function stringifier(
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
-    new Map<bigint, Uint8Array>(),
+    new Map<string, Uint8Array>(),
     toPublicKeyMap(defaultPeerPublicKey),
     defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
   );
@@ -355,7 +364,13 @@ export function stringifier(
     payload: Payload,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (!isValidHeader(header) || !payload) {
+    if (!header || !payload) {
+      return null;
+    }
+
+    let internalHeader: InternalHeader = normalizeHeader(header);
+
+    if (!isValidHeader(internalHeader)) {
       return null;
     }
 
@@ -369,7 +384,6 @@ export function stringifier(
 
     let sharedKey: Uint8Array;
     let nonce: Uint8Array;
-    let headerAndNonce: HeaderAndNonce;
     let aad: Uint8Array;
     let plaintext: Uint8Array;
     let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
@@ -381,8 +395,8 @@ export function stringifier(
         peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
       );
       nonce = nonceGenerator.next().value;
-      headerAndNonce = { ...header, nonce };
-      aad = headerAndNonceToBuffer(headerAndNonce);
+      internalHeader.nonce = nonce;
+      aad = internalHeaderToBuffer(internalHeader);
       plaintext = encode(JSON.stringify(payload), "utf8");
       sealed = seal(sharedKey, nonce, plaintext, aad);
       token = assembleToken(aad, sealed.ciphertext, sealed.tag);
@@ -429,7 +443,7 @@ export function parser(
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
-    new Map<bigint, Uint8Array>(),
+    new Map<string, Uint8Array>(),
     toPublicKeyMap(...defaultPeerPublicKeys),
     null
   );
@@ -465,7 +479,7 @@ export function parser(
     let sharedKey: Uint8Array;
     let parts: string[];
     let aad: Uint8Array;
-    let headerAndNonce: HeaderAndNonce;
+    let internalHeader: InternalHeader;
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
     let plaintext: Uint8Array;
@@ -476,20 +490,20 @@ export function parser(
       aad = encode(parts[0], "base64");
       ciphertext = encode(parts[1], "base64");
       tag = encode(parts[2], "base64");
-      headerAndNonce = bufferToHeaderAndNonce(aad);
-      sharedKey = deriveSharedKey(headerAndNonce.kid, ...peerPublicKeys);
-      plaintext = open(sharedKey, headerAndNonce.nonce, ciphertext, aad, tag);
+      internalHeader = bufferToInternalHeader(aad);
+      sharedKey = deriveSharedKey(internalHeader.kid, ...peerPublicKeys);
+      plaintext = open(sharedKey, internalHeader.nonce, ciphertext, aad, tag);
       payload = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
     }
 
-    if (!payload || !isValidHeader(headerAndNonce)) {
+    if (!payload || !isValidHeader(internalHeader)) {
       return null;
     }
 
-    delete headerAndNonce.nonce;
+    delete internalHeader.nonce;
 
-    return { header: headerAndNonce as Header, payload };
+    return { header: internalHeader as Header, payload };
   };
 }
