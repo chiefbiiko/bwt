@@ -23,7 +23,7 @@ export interface Header {
   typ: string;
   iat: number;
   exp: number;
-  kid: string | Uint8Array;
+  kid: bigint;
 }
 
 /** BWT payload object. */
@@ -59,7 +59,7 @@ export interface Parse {
 export interface KeyPair {
   sk: string | Uint8Array;
   pk: string | Uint8Array;
-  kid: string | Uint8Array;
+  kid: bigint;
 }
 
 /**
@@ -71,7 +71,7 @@ export interface KeyPair {
  */
 export interface PeerPublicKey {
   pk: string | Uint8Array;
-  kid: string | Uint8Array;
+  kid: bigint;
   name?: string | Uint8Array;
 }
 
@@ -79,7 +79,7 @@ export interface PeerPublicKey {
 export const SUPPORTED_BWT_VERSIONS: string[] = ["BWTv0"];
 
 /** Maximum allowed number of characters of a token. */
-export const MAX_TOKEN_LENGTH: number = 4096;
+export const MAX_BWT_SIZE: number = Number(Deno.env().MAX_BWT_SIZE) || 4096;
 
 /** Byte length of a Curve25519 secret key. */
 export const SECRET_KEY_BYTES: number = 32;
@@ -98,14 +98,29 @@ const CURVE25519: Curve25519 = new Curve25519();
 /** One-time-compiled regex for checking outputEncoding params.*/
 const BASE64_REGEX: RegExp = /base64/i;
 
-/** Number of characters of a base64 encoded public key identifier. */
-const KID_BYTES_BASE64: number = 24;
-
 /** "BWT" as buffer. */
 const BWT_BUF: Uint8Array = encode("BWT", "utf8");
 
 /** Byte length of a serialized header. */
 const HEADER_BUFFER_BYTES: number = 48;
+
+/** Reads given bytes as an unsigned big-endian bigint. */
+function bytesToBigIntBE(buf: Uint8Array): bigint {
+  if (!buf || !buf.byteLength) {
+  return 0n;
+}
+
+  return buf.reduce((acc: bigint, byte:number): bigint => 
+    (acc << 8n) | (BigInt(byte) & 255n), 0n)
+}
+
+/** Writes given bigint to big-endian bytes. */
+function bigintToBytesBE( b: bigint, out: Uint8Array): void {
+  for (let i: number = out.byteLength  - 1; i >= 0 ; --i) {
+    out[i] = Number(b & 255n); 
+    b >>= 8n;
+  }
+}
 
 /** Converts a header and nonce to a buffer. */
 function headerAndNonceToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
@@ -118,7 +133,7 @@ function headerAndNonceToBuffer(headerAndNonce: HeaderAndNonce): Uint8Array {
   view.setBigUint64(4, BigInt(headerAndNonce.iat), false); // iat
   view.setBigUint64(12, BigInt(headerAndNonce.exp), false); // exp
 
-  buf.set(encode(headerAndNonce.kid as string, "base64"), 20); // kid
+  bigintToBytesBE(headerAndNonce.kid, buf.subarray(20, 36)); // kid
   buf.set(headerAndNonce.nonce, 36); // nonce
 
   return buf;
@@ -135,41 +150,23 @@ function bufferToHeaderAndNonce(buf: Uint8Array): HeaderAndNonce {
   headerAndNonce.iat = Number(view.getBigUint64(4, false));
   headerAndNonce.exp = Number(view.getBigUint64(12, false));
 
-  headerAndNonce.kid = decode(buf.subarray(20, 36), "base64");
+  headerAndNonce.kid = bytesToBigIntBE(buf.subarray(20, 36))
   headerAndNonce.nonce = buf.subarray(36, HEADER_BUFFER_BYTES);
 
   return headerAndNonce;
 }
 
 /**
- * Normalizes a peer pubilc key object by assuring its kid is a base64 string
+ * Normalizes a peer pubilc key object by assuring its kid is a Uint8Array
  * and ensuring that its pk prop is a Uint8Array.
  */
 function normalizePeerPublicKey(peerPublicKey: PeerPublicKey): PeerPublicKey {
-  let clone: PeerPublicKey;
-
-  if (peerPublicKey.kid instanceof Uint8Array) {
-    clone = { ...peerPublicKey, kid: decode(peerPublicKey.kid, "base64") };
-  }
 
   if (typeof peerPublicKey.pk === "string") {
-    if (!clone) {
-      clone = { ...peerPublicKey, pk: encode(peerPublicKey.pk, "base64") };
-    } else {
-      clone.pk = encode(peerPublicKey.pk, "base64");
-    }
+      return { ...peerPublicKey, pk: encode(peerPublicKey.pk, "base64") };
   }
 
-  return clone || peerPublicKey;
-}
-
-/** Normalizes a header object by assuring its kid is a base64 string. */
-function normalizeHeader(header: Header): Header {
-  if (header.kid && typeof header.kid !== "string") {
-    return { ...header, kid: decode(header.kid, "base64") };
-  }
-
-  return header;
+  return  peerPublicKey;
 }
 
 /** Creates a nonce generator that is based on the current timestamp. */
@@ -184,11 +181,11 @@ function* createNonceGenerator(): Generator {
 /** Transforms a collection of public keys to a map representation. */
 function toPublicKeyMap(
   ...peerPublicKeys: PeerPublicKey[]
-): Map<string, Uint8Array> {
-  const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
+): Map<bigint, Uint8Array> {
+  const map: Map<bigint, Uint8Array> = new Map<bigint, Uint8Array>();
 
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid as string, peerPublicKey.pk as Uint8Array);
+    map.set(peerPublicKey.kid, peerPublicKey.pk as Uint8Array);
   }
 
   return map;
@@ -215,8 +212,7 @@ function isValidHeader(x: any): boolean {
   return (
     x &&
     SUPPORTED_BWT_VERSIONS.includes(x.typ) &&
-    x.kid &&
-    x.kid.length === KID_BYTES_BASE64 &&
+    typeof x.kid === "bigint" &&
     x.iat >= 0 &&
     !Number.isNaN(x.iat) &&
     Number.isFinite(x.iat) &&
@@ -233,25 +229,30 @@ function isValidSecretKey(x: Uint8Array): boolean {
   return x && x.byteLength === SECRET_KEY_BYTES;
 }
 
-/** Whether given input is a valid BWT peer public key. */
+/**
+ *  Whether given input is a valid BWT peer public key.
+ *
+ * This function must be passed normalized peer public keys as it assumes a 
+ * buffer pk prop for the byte length check. 
+ */
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
-    x && x.kid.length === KID_BYTES_BASE64 && x.pk.length === PUBLIC_KEY_BYTES
+    x && x.kid && x.pk.length === PUBLIC_KEY_BYTES
   );
 }
 
 /** Whether given input string complies to the maximum BWT token length. */
 function hasValidTokenLength(x: string): boolean {
-  return x && x.length <= MAX_TOKEN_LENGTH;
+  return x && x.length <= MAX_BWT_SIZE;
 }
 
 /** Efficiently derives a shared key from recurring kid strings. */
 function deriveSharedKeyProto(
   secretKey: Uint8Array,
-  sharedKeyCache: Map<string, Uint8Array>,
-  defaultPublicKeyMap: Map<string, Uint8Array>,
-  defaultKid: string,
-  kid: string = defaultKid,
+  sharedKeyCache: Map<bigint, Uint8Array>,
+  defaultPublicKeyMap: Map<bigint, Uint8Array>,
+  defaultKid: bigint,
+  kid: bigint = defaultKid,
   ...peerPublicKeySpace: PeerPublicKey[]
 ): Uint8Array {
   if (sharedKeyCache.has(kid)) {
@@ -290,13 +291,13 @@ export function generateKeys(outputEncoding?: string): KeyPair {
     crypto.getRandomValues(new Uint8Array(32))
   );
 
-  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
+  const kid: bigint = bytesToBigIntBE(crypto.getRandomValues(new Uint8Array(16)));
 
   if (outputEncoding) {
     return {
       sk: decode(keypair.sk, "base64"),
       pk: decode(keypair.pk, "base64"),
-      kid: decode(kid, "base64")
+      kid
     };
   }
 
@@ -335,7 +336,7 @@ export function stringifier(
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
-    new Map<string, Uint8Array>(),
+    new Map<bigint, Uint8Array>(),
     toPublicKeyMap(defaultPeerPublicKey),
     defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
   );
@@ -358,7 +359,7 @@ export function stringifier(
       return null;
     }
 
-    header = normalizeHeader(header);
+    // header = normalizeHeader(header);
 
     if (!isValidHeader(header)) {
       return null;
@@ -434,7 +435,7 @@ export function parser(
   const deriveSharedKey: Function = deriveSharedKeyProto.bind(
     null,
     ownSecretKey,
-    new Map<string, Uint8Array>(),
+    new Map<bigint, Uint8Array>(),
     toPublicKeyMap(...defaultPeerPublicKeys),
     null
   );
