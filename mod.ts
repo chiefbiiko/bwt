@@ -76,7 +76,7 @@ export interface PeerPublicKey {
 }
 
 /** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: string[] = ["BWTv0"];
+export const SUPPORTED_VERSIONS: Set<string> = new Set(["BWTv0"]);
 
 /** Maximum allowed number of characters of a token. */
 export const MAX_TOKEN_CHARS: number = 4096;
@@ -105,7 +105,7 @@ const BIGINT_BYTE_MASK: bigint = 255n;
 /** BigInt 8. */
 const BIGINT_BYTE_SHIFT: bigint = 8n;
 
-/** "BWT" as buffer. */
+/** "BWT\0" as buffer. */
 const MAGIC_BWT0: Uint8Array = encode("BWT\0", "utf8");
 
 /** Internal object representation adding a nonce to a header object. */
@@ -232,7 +232,7 @@ function isValidHeader(x: any): boolean {
   const now: number = Date.now();
   return (
     x &&
-    SUPPORTED_VERSIONS.includes(x.typ) &&
+    SUPPORTED_VERSIONS.has(x.typ) &&
     x.kid &&
     x.kid.length === BASE64_KID_CHARS &&
     x.iat >= 0 &&
@@ -266,8 +266,8 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   );
 }
 
-/** Whether given input string complies to the maximum BWT token length. */
-function hasValidTokenLength(x: string): boolean {
+/** Whether given input string has a valid token size. */
+function hasValidTokenSize(x: string): boolean {
   return x && x.length <= MAX_TOKEN_CHARS;
 }
 
@@ -385,7 +385,7 @@ export function stringifier(
       return null;
     }
 
-    let internalHeader: InternalHeader = normalizeHeader(header);
+    const internalHeader: InternalHeader = normalizeHeader(header);
 
     if (!isValidHeader(internalHeader)) {
       return null;
@@ -421,7 +421,7 @@ export function stringifier(
       return null;
     }
 
-    if (!hasValidTokenLength(token)) {
+    if (!hasValidTokenSize(token)) {
       return null;
     }
 
@@ -481,7 +481,7 @@ export function parser(
     token: string,
     ...peerPublicKeys: PeerPublicKey[]
   ): Contents {
-    if (!hasValidTokenLength(token)) {
+    if (!hasValidTokenSize(token)) {
       return null;
     }
 
