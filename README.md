@@ -6,6 +6,10 @@
 
 > Know someone that can *security review* this module?
 
+## What a BWT Looks Like
+
+`QldUAAAAAWygrOCJAAABbKCs4iz5wub7BvcERzge0rd2++YzNTY2MDYzNzc5OTgx.5eHsXu2v5IUnE+DS1TVaStc=.Scb9ifOg3cEcy582KKfg7Q==`
+
 ## Usage
 
 ``` ts
@@ -31,18 +35,6 @@ const contents = b.parse(token);
 
 console.log("bob got this info:", contents.payload.info);
 ```
-
-## Design
-
-- `BWT` tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
-  - high-security `AEAD_CHACHA20_POLY1305` scheme
-  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
-
-- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
-  
-- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
-
-- in case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information)
 
 ## API
 
@@ -82,7 +74,7 @@ export interface Stringify {
 
 /** BWT parse function. */
 export interface Parse {
-  (token: string, peerPublicKey?: PeerPublicKey): Contents;
+  (token: string, ...peerPublicKeys: PeerPublicKey[]): Contents;
 }
 
 /**
@@ -130,6 +122,54 @@ export const PUBLIC_KEY_BYTES: number = 32;
 
 #### `generateKeys(outputEncoding?: string): KeyPair`
 
-Generates a new BWT keypair. `outputEncoding` can be set to `"base64"`.
+Generates a new keypair.
 
-...
+`outputEncoding` can be set to `"base64"`. By default, keys are plain `Uint8Array`s.
+
+#### `stringifier(ownSecretKey: string | Uint8Array, defaultPeerPublicKey?: PeerPublicKey): Stringify`
+
+Creates a stringify function.
+
+`ownSecretKey` is the secret key of the keypair of the issuing party. Can be passed as a base64 string. `defaultPeerPublicKey` can be the peer public key object of a party that the to-be-generated tokens are meant for. If provided, it will be used as a default, i.e. when `Stringify` invocations do not receive a peer public key.
+
+#### `parser(ownSecretKey: string | Uint8Array, ...defaultPeerPublicKeys: PeerPublicKey[]): Parse`
+
+Creates a parse function.
+
+`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. Can be passed as a base64 string. `defaultPeerPublicKeys` can be a series of peer public key objects that shall be used for verification of incoming tokens. If any are specified these will be used as a default, i.e. when `Parse` invocations do not receive any peer public keys to verify against.
+
+#### `stringify(header: Header, payload: Payload, peerPublicKey?: PeerPublicKey): string`
+
+Stringifies a token.
+
+`header` must contain four props: 
+
++ `typ` set to `"BWTv0"`
+
++ `iat` a millisecond timestamp indicating the current time   
+
++ `exp` a millisecond timestamp indicating the expiry of the token
+
++ `kid` a base64 string or a binary of 16 bytes, the public key identifier of the issuing party
+
+`payload` must be an object. Apart from that it can contain any type of fields.  
+
+`peerPublicKey` can be specified to override a default peer public key and address a token to a specific party.
+
+#### `parse(token: string, ...peerPublicKeys: PeerPublicKey[]): Contents`
+
+Parses a token.
+
+If `peerPublicKeys` consists of at least one peer public key, it takes precedence and any default peer public keys possibly passed when creating the parse function are ignored for verification of the `token`.
+
+## Design
+
+- `BWT` tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
+  - high-security `AEAD_CHACHA20_POLY1305` scheme
+  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
+
+- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
+  
+- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
+
+- in case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information)

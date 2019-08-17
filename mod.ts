@@ -44,7 +44,7 @@ export interface Stringify {
 
 /** BWT parse function. */
 export interface Parse {
-  (token: string, peerPublicKey?: PeerPublicKey): Contents;
+  (token: string, ...peerPublicKeys: PeerPublicKey[]): Contents;
 }
 
 /**
