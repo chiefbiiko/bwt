@@ -173,3 +173,9 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 - `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
 
 - in case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information)
+
+## Dear Reviewers
+
+Thank you for reviewing!
+
+...
