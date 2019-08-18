@@ -178,4 +178,9 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 
 Thank you for reviewing!
 
-...
+To install `deno`: `curl -fsSL https://deno.land/x/install/install.sh | sh`
+
+Run `DENO_DIR=cache $HOME/.deno/bin/deno run ./test.ts` to run the tests and cache all dependencies into `./cache`. 
+All relevant dependencies are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
+
+Looking forward to your feedback! Please open an issue for your review findings. Thanks!
