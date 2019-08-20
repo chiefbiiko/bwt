@@ -6,6 +6,16 @@
 
 > Know someone that can *security review* this module?
 
+## Features
+
+- `BWT` tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
+  - high-security `AEAD_CHACHA20_POLY1305` scheme
+  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
+
+- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
+  
+- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
+
 ## What a BWT Looks Like
 
 `QldUAAAAAWygrOCJAAABbKCs4iz5wub7BvcERzge0rd2++YzNTY2MDYzNzc5OTgx.5eHsXu2v5IUnE+DS1TVaStc=.Scb9ifOg3cEcy582KKfg7Q==`
@@ -39,6 +49,12 @@ console.log("bob got this info:", contents.payload.info);
 ## API
 
 ### Basics
+
+`bwt` exports to factory functions (`stringifier`, `parser`) that create the corresponding marshalling function: `stringify` and `parse`.
+
+In case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information).
+
+Find basic interfaces and constants below.
 
 ``` ts
 /**
@@ -162,25 +178,13 @@ Parses a token.
 
 If `peerPublicKeys` consists of at least one peer public key, it takes precedence and any default peer public keys possibly passed when creating the parse function are ignored for verification of the `token`.
 
-## Design
-
-- `BWT` tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
-  - high-security `AEAD_CHACHA20_POLY1305` scheme
-  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
-
-- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
-  
-- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
-
-- in case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information)
-
 ## Dear Reviewers
 
 Thank you for reviewing!
 
-To install `deno`: `curl -fsSL https://deno.land/x/install/install.sh | sh`
+To install `deno` run: `curl -fsSL https://deno.land/x/install/install.sh | sh`
 
 Run `DENO_DIR=cache $HOME/.deno/bin/deno run ./test.ts` to run the tests and cache all dependencies into `./cache`. 
-All relevant dependencies are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
+All relevant dependencies ([`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64)) are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
 
 Looking forward to your feedback! Please open an issue for your review findings. Thanks!
