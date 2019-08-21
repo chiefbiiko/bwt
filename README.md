@@ -8,13 +8,13 @@
 
 ## Features
 
-- `BWT` tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
+- `BWT`s are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
   - high-security `AEAD_CHACHA20_POLY1305` scheme
   - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
 
 - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
   
-- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid`
+- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid` - no opting-out
 
 ## What a BWT Looks Like
 
@@ -23,25 +23,23 @@
 ## Usage
 
 ``` ts
-import * as BWT from "./mod.ts";
+import * as BWT from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const a = BWT.generateKeys() as any;
-const b = BWT.generateKeys() as any;
+const alice = { ...BWT.generateKeys(), stringify: null };
+const bob = { ...BWT.generateKeys(), parse: null };
 
-a.stringify = BWT.stringifier(a.sk, { name: "bob", kid: b.kid, pk: b.pk });
+alice.stringify = BWT.stringifier(alice.sk, { kid: bob.kid, pk: bob.pk });
+bob.parse = BWT.parser(bob.sk, { kid: alice.kid, pk: alice.pk });
 
-b.parse = BWT.parser(b.sk, { name: "alice", kid: a.kid, pk: a.pk });
+const iat = Date.now();
+const exp = iat + 1000;
 
-const now = Date.now();
-const iat = now;
-const exp = now + 1000;
-
-const token = a.stringify(
-  { typ: "BWTv0", iat, exp, kid: a.kid },
+const token = alice.stringify(
+  { typ: "BWTv0", iat, exp, kid: alice.kid },
   { info: "jwt sucks" }
 );
 
-const contents = b.parse(token);
+const contents = bob.parse(token);
 
 console.log("bob got this info:", contents.payload.info);
 ```
@@ -50,7 +48,7 @@ console.log("bob got this info:", contents.payload.info);
 
 ### Basics
 
-`bwt` exports to factory functions (`stringifier`, `parser`) that create the corresponding marshalling function: `stringify` and `parse`.
+`bwt` exports to factory functions `stringifier` and `parser` that create corresponding marshalling functions: `stringify` and `parse`.
 
 In case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information).
 
@@ -180,11 +178,22 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 
 ## Dear Reviewers
 
-Thank you for reviewing!
+**Quick setup:**
 
-To install `deno` run: `curl -fsSL https://deno.land/x/install/install.sh | sh`
+1. Install `deno`:
 
-Run `DENO_DIR=cache $HOME/.deno/bin/deno run ./test.ts` to run the tests and cache all dependencies into `./cache`. 
+    `curl -fsSL https://deno.land/x/install/install.sh | sh`
+
+2. Get this repo: 
+
+    `git clone https://github.com/chiefbiiko/bwt && cd ./bwt && mkdir ./cache`
+
+3. Cache all dependencies and run tests: 
+
+    `DENO_DIR=./cache $HOME/.deno/bin/deno run ./test.ts`
+
 All relevant dependencies ([`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64)) are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
 
-Looking forward to your feedback! Please open an issue for your review findings. Thanks!
+Please open an issue for your review findings. Looking forward to your feedback!
+
+**_Thank you for reviewing!_**

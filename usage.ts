@@ -1,21 +1,19 @@
-import * as BWT from "./mod.ts";
+import * as BWT from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const a = BWT.generateKeys() as any;
-const b = BWT.generateKeys() as any;
+const alice = { ...BWT.generateKeys(), stringify: null };
+const bob = { ...BWT.generateKeys(), parse: null };
 
-a.stringify = BWT.stringifier(a.sk, { name: "bob", kid: b.kid, pk: b.pk });
+alice.stringify = BWT.stringifier(alice.sk, { kid: bob.kid, pk: bob.pk });
+bob.parse = BWT.parser(bob.sk, { kid: alice.kid, pk: alice.pk });
 
-b.parse = BWT.parser(b.sk, { name: "alice", kid: a.kid, pk: a.pk });
+const iat = Date.now();
+const exp = iat + 1000;
 
-const now = Date.now();
-const iat = now;
-const exp = now + 1000;
-
-const token = a.stringify(
-  { typ: "BWTv0", iat, exp, kid: a.kid },
+const token = alice.stringify(
+  { typ: "BWTv0", iat, exp, kid: alice.kid },
   { info: "jwt sucks" }
 );
 
-const contents = b.parse(token);
+const contents = bob.parse(token);
 
 console.log("bob got this info:", contents.payload.info);
