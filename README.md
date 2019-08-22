@@ -35,7 +35,7 @@ const iat = Date.now();
 const exp = iat + 1000;
 
 const token = alice.stringify(
-  { typ: "BWTv0", iat, exp, kid: alice.kid },
+  { typ: "BWTv0", kid: alice.kid, iat, exp },
   { info: "jwt sucks" }
 );
 
@@ -50,7 +50,7 @@ console.log("bob got this info:", contents.payload.info);
 
 `bwt` exports to factory functions `stringifier` and `parser` that create corresponding marshalling functions: `stringify` and `parse`.
 
-In case of exceptions marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information).
+In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information).
 
 Find basic interfaces and constants below.
 
