@@ -25,15 +25,15 @@ function createHeader(
   };
 }
 
-function createPayload(...sources: BWT.Payload[]): BWT.Payload {
+function createBody(...sources: BWT.Body[]): BWT.Body {
   return { fraud: "fraud", ...sources };
 }
 
 interface Party {
   name: string;
   kid: string | Uint8Array;
-  sk: string | Uint8Array;
-  pk: string | Uint8Array;
+  secretKey: string | Uint8Array;
+  publicKey: string | Uint8Array;
   stringify?: BWT.Stringify;
   parse?: BWT.Parse;
 }
@@ -62,46 +62,50 @@ const d: Party = {
   name: "djb"
 };
 
-a.stringify = BWT.stringifier(a.sk, { name: "bob", kid: b.kid, pk: b.pk });
+a.stringify = BWT.stringifier(a.secretKey, {
+  name: "bob",
+  kid: b.kid,
+  publicKey: b.publicKey
+});
 
 b.parse = BWT.parser(
-  b.sk,
+  b.secretKey,
   {
     name: a.name,
     kid: a.kid,
-    pk: a.pk
+    publicKey: a.publicKey
   },
   {
     name: c.name,
     kid: c.kid,
-    pk: c.pk
+    publicKey: c.publicKey
   }
 );
 
-c.stringify = BWT.stringifier(c.sk, {
+c.stringify = BWT.stringifier(c.secretKey, {
   name: b.name,
   kid: b.kid,
-  pk: b.pk
+  publicKey: b.publicKey
 });
 
-d.parse = BWT.parser(d.sk, {
+d.parse = BWT.parser(d.secretKey, {
   name: c.name,
   kid: c.kid,
-  pk: c.pk
+  publicKey: c.publicKey
 });
 
 test({
   name: "alice and bob",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    const token: string = a.stringify(inputHeader, inputPayload);
+    const token: string = a.stringify(inputHeader, inputBody);
 
-    const { header, payload }: BWT.Contents = b.parse(token);
+    const { header, body }: BWT.Contents = b.parse(token);
 
     assertEquals(header, inputHeader);
-    assertEquals(payload, inputPayload);
+    assertEquals(body, inputBody);
   }
 });
 
@@ -114,13 +118,13 @@ test({
       kid: c.kid
     });
 
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    const aliceToken: string = a.stringify(aliceInputHeader, inputPayload);
+    const aliceToken: string = a.stringify(aliceInputHeader, inputBody);
 
     const chiefbiikoToken: string = c.stringify(
       chiefbiikoInputHeader,
-      inputPayload
+      inputBody
     );
 
     const fromAlice: BWT.Contents = b.parse(aliceToken);
@@ -128,9 +132,9 @@ test({
     const fromChiefbiiko: BWT.Contents = b.parse(chiefbiikoToken);
 
     assertEquals(fromAlice.header, aliceInputHeader);
-    assertEquals(fromAlice.payload, inputPayload);
+    assertEquals(fromAlice.body, inputBody);
     assertEquals(fromChiefbiiko.header, chiefbiikoInputHeader);
-    assertEquals(fromChiefbiiko.payload, inputPayload);
+    assertEquals(fromChiefbiiko.body, inputBody);
   }
 });
 
@@ -138,17 +142,17 @@ test({
   name: "stringify with particular public key",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: c.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    const token: string = c.stringify(inputHeader, inputPayload, {
+    const token: string = c.stringify(inputHeader, inputBody, {
       kid: d.kid,
-      pk: d.pk
+      publicKey: d.publicKey
     });
 
-    const { header, payload }: BWT.Contents = d.parse(token);
+    const { header, body }: BWT.Contents = d.parse(token);
 
     assertEquals(header, inputHeader);
-    assertEquals(payload, inputPayload);
+    assertEquals(body, inputBody);
   }
 });
 
@@ -156,20 +160,20 @@ test({
   name: "parse with particular public key",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    const token: string = a.stringify(inputHeader, inputPayload, {
+    const token: string = a.stringify(inputHeader, inputBody, {
       kid: d.kid,
-      pk: d.pk
+      publicKey: d.publicKey
     });
 
-    const { header, payload }: BWT.Contents = d.parse(token, {
+    const { header, body }: BWT.Contents = d.parse(token, {
       kid: a.kid,
-      pk: a.pk
+      publicKey: a.publicKey
     });
 
     assertEquals(header, inputHeader);
-    assertEquals(payload, inputPayload);
+    assertEquals(body, inputBody);
   }
 });
 
@@ -177,29 +181,29 @@ test({
   name: "keys can can be binary and/or base64",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    const token: string = a.stringify(inputHeader, inputPayload);
+    const token: string = a.stringify(inputHeader, inputBody);
 
-    const { header, payload }: BWT.Contents = b.parse(token, {
-      pk: decode(a.pk as Uint8Array, "base64"),
+    const { header, body }: BWT.Contents = b.parse(token, {
+      publicKey: decode(a.publicKey as Uint8Array, "base64"),
       kid: a.kid
     });
 
     assertEquals(header, inputHeader);
-    assertEquals(payload, inputPayload);
+    assertEquals(body, inputBody);
   }
 });
 
 test({
   name: "stringify nulls if header is null",
   fn(): void {
-    assertEquals(a.stringify(null, createPayload()), null);
+    assertEquals(a.stringify(null, createBody()), null);
   }
 });
 
 test({
-  name: "stringify nulls if payload is null",
+  name: "stringify nulls if body is null",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
 
@@ -215,7 +219,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -226,7 +230,7 @@ test({
       kid: "deadbeefdeadbeef"
     });
 
-    const token: string = a.stringify(inputHeader, createPayload());
+    const token: string = a.stringify(inputHeader, createBody());
 
     assertEquals(b.parse(token), null);
   }
@@ -237,7 +241,7 @@ test({
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: "" });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -246,7 +250,7 @@ test({
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ iat: -1, kid: a.kid });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -258,7 +262,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -270,7 +274,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -282,7 +286,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -291,7 +295,7 @@ test({
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ exp: -1, kid: a.kid });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -303,7 +307,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -315,7 +319,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -327,7 +331,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -339,7 +343,7 @@ test({
       kid: a.kid
     });
 
-    assertEquals(a.stringify(inputHeader, createPayload()), null);
+    assertEquals(a.stringify(inputHeader, createBody()), null);
   }
 });
 
@@ -347,9 +351,9 @@ test({
   name: "parse nulls if aad is corrupt",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    let token: string = a.stringify(inputHeader, inputPayload);
+    let token: string = a.stringify(inputHeader, inputBody);
 
     const parts: string[] = token.split(".");
 
@@ -369,9 +373,9 @@ test({
   name: "parse nulls if nonce is corrupt",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    let token: string = a.stringify(inputHeader, inputPayload);
+    let token: string = a.stringify(inputHeader, inputBody);
 
     const parts: string[] = token.split(".");
 
@@ -391,9 +395,9 @@ test({
   name: "parse nulls if tag is corrupt",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    let token: string = a.stringify(inputHeader, inputPayload);
+    let token: string = a.stringify(inputHeader, inputBody);
 
     const parts: string[] = token.split(".");
 
@@ -413,9 +417,9 @@ test({
   name: "parse nulls if ciphertext is corrupt",
   fn(): void {
     const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputPayload: BWT.Payload = createPayload();
+    const inputBody: BWT.Body = createBody();
 
-    let token: string = a.stringify(inputHeader, inputPayload);
+    let token: string = a.stringify(inputHeader, inputBody);
 
     const parts: string[] = token.split(".");
 

@@ -26,20 +26,20 @@ export interface Header {
   kid: string | Uint8Array;
 }
 
-/** BWT payload object. */
-export interface Payload {
+/** BWT body object. */
+export interface Body {
   [key: string]: unknown;
 }
 
 /** Parsed contents of a token. */
 export interface Contents {
   header: Header;
-  payload: Payload;
+  body: Body;
 }
 
 /** BWT stringify function. */
 export interface Stringify {
-  (header: Header, payload: Payload, peerPublicKey?: PeerPublicKey): string;
+  (header: Header, body: Body, peerPublicKey?: PeerPublicKey): string;
 }
 
 /** BWT parse function. */
@@ -50,33 +50,33 @@ export interface Parse {
 /**
  * BWT keypair object including a key identifier for the public key.
  *
- * sk is the 32-byte secret key.
- * pk is the 32-byte public key.
+ * secretKey is the 32-byte secret key.
+ * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
  *
  * Any of the above properties can either be buffers or base64 strings.
  */
 export interface KeyPair {
-  sk: string | Uint8Array;
-  pk: string | Uint8Array;
+  secretKey: string | Uint8Array;
+  publicKey: string | Uint8Array;
   kid: string | Uint8Array;
 }
 
 /**
  * BWT public key of a peer.
  *
- * pk is the 32-byte public key.
+ * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
  * name can be an arbitrarily encoded string or a buffer.
  */
 export interface PeerPublicKey {
-  pk: string | Uint8Array;
+  publicKey: string | Uint8Array;
   kid: string | Uint8Array;
   name?: string | Uint8Array;
 }
 
 /** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: Set<string> = new Set(["BWTv0"]);
+export const SUPPORTED_VERSIONS: Set<string> = new Set<string>(["BWTv0"]);
 
 /** Maximum allowed number of characters of a token. */
 export const MAX_TOKEN_CHARS: number = 4096;
@@ -118,7 +118,7 @@ interface InternalHeader extends Header {
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
     (acc: bigint, byte: number): bigint =>
-      acc << BIGINT_BYTE_SHIFT | BigInt(byte) & BIGINT_BYTE_MASK,
+      (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
     0n
   );
 }
@@ -161,13 +161,16 @@ function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
 
 /**
  * Normalizes a peer pubilc key object by assuring its kid is a base64 string
- * and ensuring that its pk prop is a Uint8Array.
+ * and ensuring that its publicKey prop is a Uint8Array.
  */
 function normalizePeerPublicKey(peerPublicKey: PeerPublicKey): PeerPublicKey {
   let clone: PeerPublicKey;
 
-  if (typeof peerPublicKey.pk === "string") {
-    clone = { ...peerPublicKey, pk: encode(peerPublicKey.pk, "base64") };
+  if (typeof peerPublicKey.publicKey === "string") {
+    clone = {
+      ...peerPublicKey,
+      publicKey: encode(peerPublicKey.publicKey, "base64")
+    };
   }
 
   if (typeof peerPublicKey.kid !== "string") {
@@ -206,7 +209,7 @@ function toPublicKeyMap(
   const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
 
   for (const peerPublicKey of peerPublicKeys) {
-    map.set(peerPublicKey.kid as string, peerPublicKey.pk as Uint8Array);
+    map.set(peerPublicKey.kid as string, peerPublicKey.publicKey as Uint8Array);
   }
 
   return map;
@@ -255,14 +258,14 @@ function isValidSecretKey(x: Uint8Array): boolean {
  *  Whether given input is a valid BWT peer public key.
  *
  * This function must be passed normalized peer public keys as it assumes a
- * buffer pk prop for the byte length check.
+ * buffer publicKey prop for the byte length check.
  */
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
     x &&
     x.kid &&
     x.kid.length === BASE64_KID_CHARS &&
-    x.pk.length === PUBLIC_KEY_BYTES
+    x.publicKey.length === PUBLIC_KEY_BYTES
   );
 }
 
@@ -291,7 +294,7 @@ function deriveSharedKeyProto(
       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
     );
 
-    publicKey = peerPublicKey ? (peerPublicKey.pk as Uint8Array) : null;
+    publicKey = peerPublicKey ? (peerPublicKey.publicKey as Uint8Array) : null;
   } else if (defaultPublicKeyMap.has(kid)) {
     publicKey = defaultPublicKeyMap.get(kid);
   }
@@ -313,16 +316,17 @@ export function generateKeys(outputEncoding?: string): KeyPair {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
 
-  const keypair: { sk: Uint8Array; pk: Uint8Array } = CURVE25519.generateKeys(
-    crypto.getRandomValues(new Uint8Array(32))
-  );
+  const keypair: {
+    secretKey: Uint8Array;
+    publicKey: Uint8Array;
+  } = CURVE25519.generateKeys(crypto.getRandomValues(new Uint8Array(32)));
 
   const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
 
   if (outputEncoding) {
     return {
-      sk: decode(keypair.sk, "base64"),
-      pk: decode(keypair.pk, "base64"),
+      secretKey: decode(keypair.secretKey, "base64"),
+      publicKey: decode(keypair.publicKey, "base64"),
       kid: decode(kid, "base64")
     };
   }
@@ -368,20 +372,20 @@ export function stringifier(
   );
 
   /**
-   * Stringifies header and payload to an authenticated and encrypted token.
+   * Stringifies header and body to an authenticated and encrypted token.
    *
    * header must be a BWT header object.
-   * payload must be a serializable object with string keys
+   * body must be a serializable object with string keys
    * peerPublicKey must be provided if a defaultPeerPublicKey has not been
    * passed to BWT::stringifier. It can also be used to override a default peer
    * public key for an invocation of the stringify function.
    */
   return function stringify(
     header: Header,
-    payload: Payload,
+    body: Body,
     peerPublicKey?: PeerPublicKey
   ): string {
-    if (!header || !payload) {
+    if (!header || !body) {
       return null;
     }
 
@@ -414,7 +418,7 @@ export function stringifier(
       nonce = nonceGenerator.next().value;
       internalHeader.nonce = nonce;
       aad = internalHeaderToBuffer(internalHeader);
-      plaintext = encode(JSON.stringify(payload), "utf8");
+      plaintext = encode(JSON.stringify(body), "utf8");
       sealed = seal(sharedKey, nonce, plaintext, aad);
       token = assembleToken(aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
@@ -501,7 +505,7 @@ export function parser(
     let ciphertext: Uint8Array;
     let tag: Uint8Array;
     let plaintext: Uint8Array;
-    let payload: Payload;
+    let body: Body;
 
     try {
       parts = token.split(".");
@@ -511,15 +515,15 @@ export function parser(
       [header, nonce] = bufferToHeaderAndNonce(aad);
       sharedKey = deriveSharedKey(header.kid, ...peerPublicKeys);
       plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
-      payload = JSON.parse(decode(plaintext, "utf8"));
+      body = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
     }
 
-    if (!payload || !isValidHeader(header)) {
+    if (!body || !isValidHeader(header)) {
       return null;
     }
 
-    return { header, payload };
+    return { header, body };
   };
 }

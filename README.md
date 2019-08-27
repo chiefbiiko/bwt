@@ -28,8 +28,15 @@ import * as BWT from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 const alice = { ...BWT.generateKeys(), stringify: null };
 const bob = { ...BWT.generateKeys(), parse: null };
 
-alice.stringify = BWT.stringifier(alice.sk, { kid: bob.kid, pk: bob.pk });
-bob.parse = BWT.parser(bob.sk, { kid: alice.kid, pk: alice.pk });
+alice.stringify = BWT.stringifier(alice.secretKey, {
+  kid: bob.kid,
+  publicKey: bob.publicKey
+});
+
+bob.parse = BWT.parser(bob.secretKey, {
+  kid: alice.kid,
+  publicKey: alice.publicKey
+});
 
 const iat = Date.now();
 const exp = iat + 1000;
@@ -41,7 +48,7 @@ const token = alice.stringify(
 
 const contents = bob.parse(token);
 
-console.log("bob got this info:", contents.payload.info);
+console.log("bob got this info:", contents.body.info);
 ```
 
 ## API
@@ -70,20 +77,20 @@ export interface Header {
   kid: string | Uint8Array;
 }
 
-/** BWT payload object. */
-export interface Payload {
+/** BWT body object. */
+export interface Body {
   [key: string]: unknown;
 }
 
 /** Parsed contents of a token. */
 export interface Contents {
   header: Header;
-  payload: Payload;
+  body: Body;
 }
 
 /** BWT stringify function. */
 export interface Stringify {
-  (header: Header, payload: Payload, peerPublicKey?: PeerPublicKey): string;
+  (header: Header, body: Body, peerPublicKey?: PeerPublicKey): string;
 }
 
 /** BWT parse function. */
@@ -94,27 +101,27 @@ export interface Parse {
 /**
  * BWT keypair object including a key identifier for the public key.
  *
- * sk is the 32-byte secret key.
- * pk is the 32-byte public key.
+ * secretKey is the 32-byte secret key.
+ * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
  *
  * Any of the above properties can either be buffers or base64 strings.
  */
 export interface KeyPair {
-  sk: string | Uint8Array;
-  pk: string | Uint8Array;
+  secretKey: string | Uint8Array;
+  publicKey: string | Uint8Array;
   kid: string | Uint8Array;
 }
 
 /**
  * BWT public key of a peer.
  *
- * pk is the 32-byte public key.
+ * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
  * name can be an arbitrarily encoded string or a buffer.
  */
 export interface PeerPublicKey {
-  pk: string | Uint8Array;
+  publicKey: string | Uint8Array;
   kid: string | Uint8Array;
   name?: string | Uint8Array;
 }
@@ -152,7 +159,7 @@ Creates a parse function.
 
 `ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. Can be passed as a base64 string. `defaultPeerPublicKeys` can be a series of peer public key objects that shall be used for verification of incoming tokens. If any are specified these will be used as a default, i.e. when `Parse` invocations do not receive any peer public keys to verify against.
 
-#### `stringify(header: Header, payload: Payload, peerPublicKey?: PeerPublicKey): string`
+#### `stringify(header: Header, body: Body, peerPublicKey?: PeerPublicKey): string`
 
 Stringifies a token.
 
@@ -166,7 +173,7 @@ Stringifies a token.
 
 + `kid` a base64 string or a binary of 16 bytes, the public key identifier of the issuing party
 
-`payload` must be an object. Apart from that it can contain any type of fields.  
+`body` must be an object. Apart from that it can contain any type of fields.  
 
 `peerPublicKey` can be specified to override a default peer public key and address a token to a specific party.
 
