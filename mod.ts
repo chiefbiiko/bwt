@@ -403,24 +403,27 @@ export function stringifier(
       }
     }
 
-    let sharedKey: Uint8Array;
-    let nonce: Uint8Array;
-    let aad: Uint8Array;
-    let plaintext: Uint8Array;
-    let sealed: { ciphertext: Uint8Array; tag: Uint8Array };
     let token: string;
 
     try {
-      sharedKey = deriveSharedKey.apply(
+      const sharedKey: Uint8Array = deriveSharedKey.apply(
         null,
         peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
       );
-      nonce = nonceGenerator.next().value;
+      const nonce: Uint8Array = nonceGenerator.next().value;
       internalHeader.nonce = nonce;
-      aad = internalHeaderToBuffer(internalHeader);
-      plaintext = encode(JSON.stringify(body), "utf8");
-      sealed = seal(sharedKey, nonce, plaintext, aad);
-      token = assembleToken(aad, sealed.ciphertext, sealed.tag);
+      const aad: Uint8Array = internalHeaderToBuffer(internalHeader);
+      const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
+      const {
+        ciphertext,
+        tag
+      }: { ciphertext: Uint8Array; tag: Uint8Array } = seal(
+        sharedKey,
+        nonce,
+        plaintext,
+        aad
+      );
+      token = assembleToken(aad, ciphertext, tag);
     } catch (_) {
       return null;
     }
@@ -497,24 +500,27 @@ export function parser(
       }
     }
 
-    let sharedKey: Uint8Array;
-    let parts: string[];
-    let aad: Uint8Array;
     let header: Header;
     let nonce: Uint8Array;
-    let ciphertext: Uint8Array;
-    let tag: Uint8Array;
-    let plaintext: Uint8Array;
     let body: Body;
 
     try {
-      parts = token.split(".");
-      aad = encode(parts[0], "base64");
-      ciphertext = encode(parts[1], "base64");
-      tag = encode(parts[2], "base64");
+      const parts: string[] = token.split(".");
+      const aad: Uint8Array = encode(parts[0], "base64");
+      const ciphertext: Uint8Array = encode(parts[1], "base64");
+      const tag: Uint8Array = encode(parts[2], "base64");
       [header, nonce] = bufferToHeaderAndNonce(aad);
-      sharedKey = deriveSharedKey(header.kid, ...peerPublicKeys);
-      plaintext = open(sharedKey, nonce, ciphertext, aad, tag);
+      const sharedKey: Uint8Array = deriveSharedKey(
+        header.kid,
+        ...peerPublicKeys
+      );
+      const plaintext: Uint8Array = open(
+        sharedKey,
+        nonce,
+        ciphertext,
+        aad,
+        tag
+      );
       body = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;
