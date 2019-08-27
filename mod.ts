@@ -68,6 +68,8 @@ export interface KeyPair {
  * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
  * name can be an arbitrarily encoded string or a buffer.
+ *
+ * publicKey and kid can either be buffers or base64 strings.
  */
 export interface PeerPublicKey {
   publicKey: string | Uint8Array;

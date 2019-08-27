@@ -9,7 +9,7 @@
 ## Features
 
 - `BWT`s are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
-  - high-security `AEAD_CHACHA20_POLY1305` scheme
+  - [high-security](https://www.cryptrec.go.jp/exreport/cryptrec-ex-2601-2016.pdf) `AEAD_CHACHA20_POLY1305` scheme
   - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
 
 - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
@@ -117,8 +117,10 @@ export interface KeyPair {
  * BWT public key of a peer.
  *
  * publicKey is the 32-byte public key.
- * kid is a 16-byte key identifer for the public key.
+ * kid is a 16-byte key identifier for the public key.
  * name can be an arbitrarily encoded string or a buffer.
+ *
+ * publicKey and kid can either be buffers or base64 strings.
  */
 export interface PeerPublicKey {
   publicKey: string | Uint8Array;
@@ -127,7 +129,7 @@ export interface PeerPublicKey {
 }
 
 /** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: Set<string> = new Set(["BWTv0"]);
+export const SUPPORTED_VERSIONS: Set<string> = new Set<string>(["BWTv0"]);
 
 /** Maximum allowed number of characters of a token. */
 export const MAX_TOKEN_CHARS: number = 4096;
