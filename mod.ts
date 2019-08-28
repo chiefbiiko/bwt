@@ -1,11 +1,9 @@
 import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
-
 import {
   seal,
   open,
   NONCE_BYTES
 } from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
-
 import {
   encode,
   decode
@@ -313,7 +311,7 @@ function deriveSharedKeyProto(
 }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
-export function generateKeys(outputEncoding?: string): KeyPair {
+export function keys(outputEncoding?: string): KeyPair {
   if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }

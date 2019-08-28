@@ -1,17 +1,15 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
-
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-
 import {
   encode,
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
-import * as BWT from "./mod.ts";
+import * as bwt from "./mod.ts";
 
 function createHeader(
   source: { [key: string]: number | Uint8Array | string } = {}
-): BWT.Header {
+): bwt.Header {
   const kid: string =
     source.kid instanceof Uint8Array
       ? decode(source.kid, "base64")
@@ -25,7 +23,7 @@ function createHeader(
   };
 }
 
-function createBody(...sources: BWT.Body[]): BWT.Body {
+function createBody(...sources: bwt.Body[]): bwt.Body {
   return { fraud: "fraud", ...sources };
 }
 
@@ -34,41 +32,22 @@ interface Party {
   kid: string | Uint8Array;
   secretKey: string | Uint8Array;
   publicKey: string | Uint8Array;
-  stringify?: BWT.Stringify;
-  parse?: BWT.Parse;
+  stringify?: bwt.Stringify;
+  parse?: bwt.Parse;
 }
 
-const a: Party = {
-  ...BWT.generateKeys(),
-  stringify: null,
-  name: "alice"
-};
+const a: Party = { ...bwt.keys(), stringify: null, name: "alice" };
+const b: Party = { ...bwt.keys(), parse: null, name: "bob" };
+const c: Party = { ...bwt.keys(), stringify: null, name: "chiefbiiko" };
+const d: Party = { ...bwt.keys(), parse: null, name: "djb" };
 
-const b: Party = {
-  ...BWT.generateKeys(),
-  parse: null,
-  name: "bob"
-};
-
-const c: Party = {
-  ...BWT.generateKeys(),
-  stringify: null,
-  name: "chiefbiiko"
-};
-
-const d: Party = {
-  ...BWT.generateKeys(),
-  parse: null,
-  name: "djb"
-};
-
-a.stringify = BWT.stringifier(a.secretKey, {
+a.stringify = bwt.stringifier(a.secretKey, {
   name: "bob",
   kid: b.kid,
   publicKey: b.publicKey
 });
 
-b.parse = BWT.parser(
+b.parse = bwt.parser(
   b.secretKey,
   {
     name: a.name,
@@ -82,13 +61,13 @@ b.parse = BWT.parser(
   }
 );
 
-c.stringify = BWT.stringifier(c.secretKey, {
+c.stringify = bwt.stringifier(c.secretKey, {
   name: b.name,
   kid: b.kid,
   publicKey: b.publicKey
 });
 
-d.parse = BWT.parser(d.secretKey, {
+d.parse = bwt.parser(d.secretKey, {
   name: c.name,
   kid: c.kid,
   publicKey: c.publicKey
@@ -97,12 +76,12 @@ d.parse = BWT.parser(d.secretKey, {
 test({
   name: "alice and bob",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     const token: string = a.stringify(inputHeader, inputBody);
 
-    const { header, body }: BWT.Contents = b.parse(token);
+    const { header, body }: bwt.Contents = b.parse(token);
 
     assertEquals(header, inputHeader);
     assertEquals(body, inputBody);
@@ -112,13 +91,13 @@ test({
 test({
   name: "parse from multiple peers",
   fn(): void {
-    const aliceInputHeader: BWT.Header = createHeader({ kid: a.kid });
+    const aliceInputHeader: bwt.Header = createHeader({ kid: a.kid });
 
-    const chiefbiikoInputHeader: BWT.Header = createHeader({
+    const chiefbiikoInputHeader: bwt.Header = createHeader({
       kid: c.kid
     });
 
-    const inputBody: BWT.Body = createBody();
+    const inputBody: bwt.Body = createBody();
 
     const aliceToken: string = a.stringify(aliceInputHeader, inputBody);
 
@@ -127,9 +106,9 @@ test({
       inputBody
     );
 
-    const fromAlice: BWT.Contents = b.parse(aliceToken);
+    const fromAlice: bwt.Contents = b.parse(aliceToken);
 
-    const fromChiefbiiko: BWT.Contents = b.parse(chiefbiikoToken);
+    const fromChiefbiiko: bwt.Contents = b.parse(chiefbiikoToken);
 
     assertEquals(fromAlice.header, aliceInputHeader);
     assertEquals(fromAlice.body, inputBody);
@@ -141,15 +120,15 @@ test({
 test({
   name: "stringify with particular public key",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: c.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: c.kid });
+    const inputBody: bwt.Body = createBody();
 
     const token: string = c.stringify(inputHeader, inputBody, {
       kid: d.kid,
       publicKey: d.publicKey
     });
 
-    const { header, body }: BWT.Contents = d.parse(token);
+    const { header, body }: bwt.Contents = d.parse(token);
 
     assertEquals(header, inputHeader);
     assertEquals(body, inputBody);
@@ -159,15 +138,15 @@ test({
 test({
   name: "parse with particular public key",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     const token: string = a.stringify(inputHeader, inputBody, {
       kid: d.kid,
       publicKey: d.publicKey
     });
 
-    const { header, body }: BWT.Contents = d.parse(token, {
+    const { header, body }: bwt.Contents = d.parse(token, {
       kid: a.kid,
       publicKey: a.publicKey
     });
@@ -180,12 +159,12 @@ test({
 test({
   name: "keys can can be binary and/or base64",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     const token: string = a.stringify(inputHeader, inputBody);
 
-    const { header, body }: BWT.Contents = b.parse(token, {
+    const { header, body }: bwt.Contents = b.parse(token, {
       publicKey: decode(a.publicKey as Uint8Array, "base64"),
       kid: a.kid
     });
@@ -205,7 +184,7 @@ test({
 test({
   name: "stringify nulls if body is null",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, null), null);
   }
@@ -214,7 +193,7 @@ test({
 test({
   name: "stringify nulls if version is unsupported",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       typ: "BWTv419",
       kid: a.kid
     });
@@ -226,7 +205,7 @@ test({
 test({
   name: "parse nulls if kid is unknown",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       kid: "deadbeefdeadbeef"
     });
 
@@ -239,7 +218,7 @@ test({
 test({
   name: "stringify nulls if kid is falsy",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: "" });
+    const inputHeader: bwt.Header = createHeader({ kid: "" });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -248,7 +227,7 @@ test({
 test({
   name: "stringify nulls if iat is negative",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ iat: -1, kid: a.kid });
+    const inputHeader: bwt.Header = createHeader({ iat: -1, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -257,7 +236,7 @@ test({
 test({
   name: "stringify nulls if iat is NaN",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       iat: NaN,
       kid: a.kid
     });
@@ -269,7 +248,7 @@ test({
 test({
   name: "stringify nulls if iat is Infinity",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       iat: Infinity,
       kid: a.kid
     });
@@ -281,7 +260,7 @@ test({
 test({
   name: "stringify nulls if iat is null",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       iat: null,
       kid: a.kid
     });
@@ -293,7 +272,7 @@ test({
 test({
   name: "stringify nulls if exp is negative",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ exp: -1, kid: a.kid });
+    const inputHeader: bwt.Header = createHeader({ exp: -1, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -302,7 +281,7 @@ test({
 test({
   name: "stringify nulls if exp is NaN",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       exp: NaN,
       kid: a.kid
     });
@@ -314,7 +293,7 @@ test({
 test({
   name: "stringify nulls if exp is Infinity",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       exp: Infinity,
       kid: a.kid
     });
@@ -326,7 +305,7 @@ test({
 test({
   name: "stringify nulls if exp is null",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       exp: null,
       kid: a.kid
     });
@@ -338,7 +317,7 @@ test({
 test({
   name: "BWT ops null if exp is due",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({
+    const inputHeader: bwt.Header = createHeader({
       exp: Date.now() - 1,
       kid: a.kid
     });
@@ -350,8 +329,8 @@ test({
 test({
   name: "parse nulls if aad is corrupt",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     let token: string = a.stringify(inputHeader, inputBody);
 
@@ -372,8 +351,8 @@ test({
 test({
   name: "parse nulls if nonce is corrupt",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     let token: string = a.stringify(inputHeader, inputBody);
 
@@ -394,8 +373,8 @@ test({
 test({
   name: "parse nulls if tag is corrupt",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     let token: string = a.stringify(inputHeader, inputBody);
 
@@ -416,8 +395,8 @@ test({
 test({
   name: "parse nulls if ciphertext is corrupt",
   fn(): void {
-    const inputHeader: BWT.Header = createHeader({ kid: a.kid });
-    const inputBody: BWT.Body = createBody();
+    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+    const inputBody: bwt.Body = createBody();
 
     let token: string = a.stringify(inputHeader, inputBody);
 

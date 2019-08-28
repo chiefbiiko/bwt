@@ -23,17 +23,17 @@
 ## Usage
 
 ``` ts
-import * as BWT from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
+import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const alice = { ...BWT.generateKeys(), stringify: null };
-const bob = { ...BWT.generateKeys(), parse: null };
+const alice = { ...bwt.keys(), stringify: null };
+const bob = { ...bwt.keys(), parse: null };
 
-alice.stringify = BWT.stringifier(alice.secretKey, {
+alice.stringify = bwt.stringifier(alice.secretKey, {
   kid: bob.kid,
   publicKey: bob.publicKey
 });
 
-bob.parse = BWT.parser(bob.secretKey, {
+bob.parse = bwt.parser(bob.secretKey, {
   kid: alice.kid,
   publicKey: alice.publicKey
 });
@@ -55,9 +55,11 @@ console.log("bob got this info:", contents.body.info);
 
 ### Basics
 
-`bwt` exports to factory functions `stringifier` and `parser` that create corresponding marshalling functions: `stringify` and `parse`.
+Besides a few constants and interfaces, the module's main exports are two factory functions, `stringifier` and `parser`, that each create corresponding marshalling functions, `stringify` and `parse`.
 
-In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (that possibly leak sensitive information).
+As `BWT` uses assymetric keys the module also exports a key generation function: `keys`. Make sure to store your private keys somewhere safe.
+
+In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (to avoid leaking sensitive information).
 
 Find basic interfaces and constants below.
 
@@ -143,7 +145,7 @@ export const PUBLIC_KEY_BYTES: number = 32;
 
 ### Core Callables
 
-#### `generateKeys(outputEncoding?: string): KeyPair`
+#### `keys(outputEncoding?: string): KeyPair`
 
 Generates a new keypair.
 
@@ -159,7 +161,7 @@ Creates a stringify function.
 
 Creates a parse function.
 
-`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. Can be passed as a base64 string. `defaultPeerPublicKeys` can be a series of peer public key objects that shall be used for verification of incoming tokens. If any are specified these will be used as a default, i.e. when `Parse` invocations do not receive any peer public keys to verify against.
+`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. Can be passed as a base64 string. `defaultPeerPublicKeys` can be an array of peer public key objects to be used for verification of incoming tokens. If any are specified these will be used as a default, i.e. when `Parse` invocations do not receive any peer public keys to verify against.
 
 #### `stringify(header: Header, body: Body, peerPublicKey?: PeerPublicKey): string`
 
@@ -169,9 +171,9 @@ Stringifies a token.
 
 + `typ` set to `"BWTv0"`
 
-+ `iat` a millisecond timestamp indicating the current time   
++ `iat` a millisecond timestamp indicating the current time 
 
-+ `exp` a millisecond timestamp indicating the expiry of the token
++ `exp` a millisecond timestamp indicating the expiry of the token 
 
 + `kid` a base64 string or a binary of 16 bytes, the public key identifier of the issuing party
 
@@ -201,7 +203,7 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 
     `DENO_DIR=./cache $HOME/.deno/bin/deno run ./test.ts`
 
-All relevant dependencies ([`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64)) are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
+All relevant dependencies, [`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64), are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
 
 Please open an issue for your review findings. Looking forward to your feedback!
 
