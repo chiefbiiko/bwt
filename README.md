@@ -181,11 +181,15 @@ Stringifies a token.
 
 `peerPublicKey` can be specified to override a default peer public key and address a token to a specific party.
 
+In case of invalid inputs or any other exceptions `stringify` returns `null`, otherwise a `BWT` token.
+
 #### `parse(token: string, ...peerPublicKeys: PeerPublicKey[]): Contents`
 
 Parses a token.
 
 If `peerPublicKeys` consists of at least one peer public key, it takes precedence and any default peer public keys possibly passed when creating the parse function are ignored for verification of the `token`.
+
+In case of invalid inputs or any other exceptions `parse` returns `null`, otherwise a `BWT` header and body.
 
 ## Dear Reviewers
 
