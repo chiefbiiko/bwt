@@ -36,18 +36,18 @@ interface Party {
   parse?: bwt.Parse;
 }
 
-const a: Party = { ...bwt.keys(), stringify: null, name: "alice" };
-const b: Party = { ...bwt.keys(), parse: null, name: "bob" };
-const c: Party = { ...bwt.keys(), stringify: null, name: "chiefbiiko" };
-const d: Party = { ...bwt.keys(), parse: null, name: "djb" };
+const a: Party = { ...bwt.generateKeyPair(), stringify: null, name: "alice" };
+const b: Party = { ...bwt.generateKeyPair(), parse: null, name: "bob" };
+const c: Party = { ...bwt.generateKeyPair(), stringify: null, name: "chiefbiiko" };
+const d: Party = { ...bwt.generateKeyPair(), parse: null, name: "djb" };
 
-a.stringify = bwt.stringifier(a.secretKey, {
+a.stringify = bwt.createStringify(a.secretKey, {
   name: "bob",
   kid: b.kid,
   publicKey: b.publicKey
 });
 
-b.parse = bwt.parser(
+b.parse = bwt.createParse(
   b.secretKey,
   {
     name: a.name,
@@ -61,13 +61,13 @@ b.parse = bwt.parser(
   }
 );
 
-c.stringify = bwt.stringifier(c.secretKey, {
+c.stringify = bwt.createStringify(c.secretKey, {
   name: b.name,
   kid: b.kid,
   publicKey: b.publicKey
 });
 
-d.parse = bwt.parser(d.secretKey, {
+d.parse = bwt.createParse(d.secretKey, {
   name: c.name,
   kid: c.kid,
   publicKey: c.publicKey

@@ -311,7 +311,7 @@ function deriveSharedKeyProto(
 }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
-export function keys(outputEncoding?: string): KeyPair {
+export function generateKeyPair(outputEncoding?: string): KeyPair {
   if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
@@ -341,7 +341,7 @@ export function keys(outputEncoding?: string): KeyPair {
  * defaultPeerPublicKey can be a peer public key that shall be used as the
  * default for all subsequent invocations of the returned stringify function.
  */
-export function stringifier(
+export function createStringify(
   ownSecretKey: string | Uint8Array,
   defaultPeerPublicKey?: PeerPublicKey
 ): Stringify {
@@ -377,7 +377,7 @@ export function stringifier(
    * header must be a BWT header object.
    * body must be a serializable object with string keys
    * peerPublicKey must be provided if a defaultPeerPublicKey has not been
-   * passed to BWT::stringifier. It can also be used to override a default peer
+   * passed to BWT::createStringify. It can also be used to override a default peer
    * public key for an invocation of the stringify function.
    */
   return function stringify(
@@ -444,7 +444,7 @@ export function stringifier(
  * to lookup public keys by key identifiers for all subsequent invocations of
  * the returned parse function.
  */
-export function parser(
+export function createParse(
   ownSecretKey: string | Uint8Array,
   ...defaultPeerPublicKeys: PeerPublicKey[]
 ): Parse {
@@ -480,7 +480,7 @@ export function parser(
    *
    * token must be a BWT token.
    * peerPublicKeys must be provided if no default peer public keys have been
-   * passed to BWT::parser. This collection can also be used to override the
+   * passed to BWT::createParse. This collection can also be used to override the
    * public key lookup space for the current parse invocation.
    *
    */

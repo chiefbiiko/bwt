@@ -25,15 +25,15 @@
 ``` ts
 import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const alice = { ...bwt.keys(), stringify: null };
-const bob = { ...bwt.keys(), parse: null };
+const alice = { ...bwt.generateKeyPair(), stringify: null };
+const bob = { ...bwt.generateKeyPair(), parse: null };
 
-alice.stringify = bwt.stringifier(alice.secretKey, {
+alice.stringify = bwt.createStringify(alice.secretKey, {
   kid: bob.kid,
   publicKey: bob.publicKey
 });
 
-bob.parse = bwt.parser(bob.secretKey, {
+bob.parse = bwt.createParse(bob.secretKey, {
   kid: alice.kid,
   publicKey: alice.publicKey
 });
@@ -55,7 +55,7 @@ console.log("bob got this info:", contents.body.info);
 
 ### Basics
 
-Besides a few constants and interfaces, the module's main exports are two factory functions, `stringifier` and `parser`, that each create corresponding marshalling functions, `stringify` and `parse`.
+Besides a few constants and interfaces, the module's main exports are two factory functions, `createStringify` and `createParse`, that each create corresponding marshalling functions, `stringify` and `parse`.
 
 As `BWT` uses assymetric keys the module also exports a key generation function: `keys`. Make sure to store your private keys somewhere safe.
 
@@ -145,19 +145,19 @@ export const PUBLIC_KEY_BYTES: number = 32;
 
 ### Core Callables
 
-#### `keys(outputEncoding?: string): KeyPair`
+#### `generateKeyPair(outputEncoding?: string): KeyPair`
 
 Generates a new keypair.
 
 `outputEncoding` can be set to `"base64"`. By default, keys are plain `Uint8Array`s.
 
-#### `stringifier(ownSecretKey: string | Uint8Array, defaultPeerPublicKey?: PeerPublicKey): Stringify`
+#### `createStringify(ownSecretKey: string | Uint8Array, defaultPeerPublicKey?: PeerPublicKey): Stringify`
 
 Creates a stringify function.
 
 `ownSecretKey` is the secret key of the keypair of the issuing party. Can be passed as a base64 string. `defaultPeerPublicKey` can be the peer public key object of a party that the to-be-generated tokens are meant for. If provided, it will be used as a default, i.e. when `Stringify` invocations do not receive a peer public key.
 
-#### `parser(ownSecretKey: string | Uint8Array, ...defaultPeerPublicKeys: PeerPublicKey[]): Parse`
+#### `createParse(ownSecretKey: string | Uint8Array, ...defaultPeerPublicKeys: PeerPublicKey[]): Parse`
 
 Creates a parse function.
 
@@ -189,7 +189,7 @@ Parses a token.
 
 If `peerPublicKeys` consists of at least one peer public key, it takes precedence and any default peer public keys possibly passed when creating the parse function are ignored for verification of the `token`.
 
-In case of invalid inputs or any other exceptions `parse` returns `null`, otherwise a `BWT` header and body.
+In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
 
 ## Dear Reviewers
 

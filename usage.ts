@@ -1,14 +1,14 @@
 import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const alice = { ...bwt.keys(), stringify: null };
-const bob = { ...bwt.keys(), parse: null };
+const alice = { ...bwt.generateKeyPair(), stringify: null };
+const bob = { ...bwt.generateKeyPair(), parse: null };
 
-alice.stringify = bwt.stringifier(alice.secretKey, {
+alice.stringify = bwt.createStringify(alice.secretKey, {
   kid: bob.kid,
   publicKey: bob.publicKey
 });
 
-bob.parse = bwt.parser(bob.secretKey, {
+bob.parse = bwt.createParse(bob.secretKey, {
   kid: alice.kid,
   publicKey: alice.publicKey
 });
