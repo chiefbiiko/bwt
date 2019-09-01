@@ -57,7 +57,7 @@ console.log("bob got this info:", contents.body.info);
 
 Besides a few constants and interfaces, the module's main exports are two factory functions, `createStringify` and `createParse`, that each create corresponding marshalling functions, `stringify` and `parse`.
 
-As `BWT` uses assymetric keys the module also exports a key generation function: `keys`. Make sure to store your private keys somewhere safe.
+As `BWT` uses assymetric keys the module also exports a key generation function: `generateKeyPair`. Make sure to store your private keys somewhere safe.
 
 In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (to avoid leaking sensitive information).
 
@@ -212,3 +212,7 @@ All relevant dependencies, [`aead-chacha20-poly1305`](https://github.com/chiefbi
 Please open an issue for your review findings. Looking forward to your feedback!
 
 **_Thank you for reviewing!_**
+
+## License
+
+[MIT](./LICENSE)
