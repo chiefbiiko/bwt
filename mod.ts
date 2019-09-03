@@ -239,12 +239,10 @@ function isValidHeader(x: any): boolean {
     x.kid &&
     x.kid.length === BASE64_KID_CHARS &&
     x.iat >= 0 &&
-    !Number.isNaN(x.iat) &&
-    Number.isFinite(x.iat) &&
+    x.iat % 1 === 0 &&
     x.iat <= now &&
     x.exp >= 0 &&
-    !Number.isNaN(x.exp) &&
-    Number.isFinite(x.exp) &&
+    x.exp % 1 === 0 &&
     x.exp > now
   );
 }
@@ -377,8 +375,8 @@ export function createStringify(
    * header must be a BWT header object.
    * body must be a serializable object with string keys
    * peerPublicKey must be provided if a defaultPeerPublicKey has not been
-   * passed to BWT::createStringify. It can also be used to override a default peer
-   * public key for an invocation of the stringify function.
+   * passed to BWT::createStringify. It can also be used to override a default 
+   * peer public key for an invocation of the stringify function.
    */
   return function stringify(
     header: Header,
@@ -480,9 +478,8 @@ export function createParse(
    *
    * token must be a BWT token.
    * peerPublicKeys must be provided if no default peer public keys have been
-   * passed to BWT::createParse. This collection can also be used to override the
-   * public key lookup space for the current parse invocation.
-   *
+   * passed to BWT::createParse. This collection can also be used to override 
+   * the public key lookup space for the current parse invocation.
    */
   return function parse(
     token: string,

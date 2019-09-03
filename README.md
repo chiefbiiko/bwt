@@ -191,6 +191,8 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 
 In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
 
+Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` claims are unsigned integers and `iat <= Date.now() < exp`. 
+
 ## Dear Reviewers
 
 **Quick setup:**
