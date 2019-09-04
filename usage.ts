@@ -21,6 +21,8 @@ const token = alice.stringify(
   { info: "jwt sucks" }
 );
 
+console.log("alice seals and sends this token to bob:", token);
+
 const contents = bob.parse(token);
 
-console.log("bob got this info:", contents.body.info);
+console.log("bob opens it...:", JSON.stringify(contents));
