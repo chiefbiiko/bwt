@@ -17,7 +17,7 @@ const iat = Date.now();
 const exp = iat + 1000;
 
 const token = alice.stringify(
-  { typ: "BWTv0", kid: alice.kid, iat, exp },
+  { typ: bwt.Typ.BWTv0, kid: alice.kid, iat, exp },
   { info: "jwt sucks" }
 );
 

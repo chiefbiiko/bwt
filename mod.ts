@@ -9,7 +9,7 @@ import {
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
-/** Typ enum indicating a BWT version. */
+/** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
   BWTv0
 }
@@ -152,8 +152,7 @@ function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
   buf.set(MAGIC_BWT, 0); // BWT
-
-  //TODO
+  buf[3] = internalHeader.typ; // version
 
   bigintToBytesBE(BigInt(internalHeader.iat), buf.subarray(4, 12)); // iat
   bigintToBytesBE(BigInt(internalHeader.exp), buf.subarray(12, 20)); // exp
@@ -375,14 +374,14 @@ export function createStringify(
   }
 
   if (!isValidSecretKey(ownSecretKey)) {
-    return null;
+    throw new TypeError("invalid secret key");
   }
 
   if (defaultPeerPublicKey) {
     defaultPeerPublicKey = normalizePeerPublicKey(defaultPeerPublicKey);
 
     if (!isValidPeerPublicKey(defaultPeerPublicKey)) {
-      return null;
+      throw new TypeError("invalid peer public key");
     }
   }
 
@@ -484,14 +483,14 @@ export function createParse(
   }
 
   if (!isValidSecretKey(ownSecretKey)) {
-    return null;
+    throw new TypeError("invalid secret key");
   }
 
   if (defaultPeerPublicKeys.length) {
     defaultPeerPublicKeys = defaultPeerPublicKeys.map(normalizePeerPublicKey);
 
     if (!defaultPeerPublicKeys.every(isValidPeerPublicKey)) {
-      return null;
+      throw new TypeError("invalid peer public keys");
     }
   }
 

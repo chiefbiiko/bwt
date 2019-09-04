@@ -42,7 +42,7 @@ const iat = Date.now();
 const exp = iat + 1000;
 
 const token = alice.stringify(
-  { typ: "BWTv0", kid: alice.kid, iat, exp },
+  { typ: bwt.Typ.BWTv0, kid: alice.kid, iat, exp },
   { info: "jwt sucks" }
 );
 
@@ -59,11 +59,16 @@ Besides a few constants and interfaces, the module's main exports are two factor
 
 As `BWT` uses assymetric keys the module also exports a key generation function: `generateKeyPair`. Make sure to store your private keys somewhere safe.
 
-In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (to avoid leaking sensitive information).
+In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (to avoid leaking sensitive information). `generateKeyPair`, `createStringify`, and `createParse` will throw on invalid inputs though.
 
 Find basic interfaces and constants below.
 
 ``` ts
+/** Typ enum indicating a BWT version @ the Header.typ field. */
+export const enum Typ {
+  BWTv0
+}
+
 /**
  * BWT header object.
  *
@@ -73,7 +78,7 @@ Find basic interfaces and constants below.
  * strings are supported.
  */
 export interface Header {
-  typ: string;
+  typ: Typ;
   iat: number;
   exp: number;
   kid: string | Uint8Array;
