@@ -9,6 +9,11 @@ import {
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
+/** Typ enum indicating a BWT version. */
+export const enum Typ {
+  BWTv0
+}
+
 /**
  * BWT header object.
  *
@@ -18,7 +23,7 @@ import {
  * strings are supported.
  */
 export interface Header {
-  typ: string;
+  typ: Typ;
   iat: number;
   exp: number;
   kid: string | Uint8Array;
@@ -76,7 +81,7 @@ export interface PeerPublicKey {
 }
 
 /** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: Set<string> = new Set<string>(["BWTv0"]);
+export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
 
 /** Maximum allowed number of characters of a token. */
 export const MAX_TOKEN_CHARS: number = 4096;
@@ -105,8 +110,8 @@ const BIGINT_BYTE_MASK: bigint = 255n;
 /** BigInt 8. */
 const BIGINT_BYTE_SHIFT: bigint = 8n;
 
-/** "BWT\0" as buffer. */
-const MAGIC_BWT0: Uint8Array = encode("BWT\0", "utf8");
+/** "BWT" as buffer. */
+const MAGIC_BWT: Uint8Array = encode("BWT", "utf8");
 
 /** Internal object representation adding a nonce to a header object. */
 interface InternalHeader extends Header {
@@ -114,7 +119,18 @@ interface InternalHeader extends Header {
   kidBuf: Uint8Array;
 }
 
-/** Reads given bytes as an unsigned big-endian int. */
+/** Bike-shed constant-time buffer equality check. */
+export function equal(a: Uint8Array, b: Uint8Array): boolean {
+  let diff: number = a.length === b.length ? 0 : 1;
+
+  for (let i: number = Math.max(a.length, b.length) - 1; i >= 0; --i) {
+    diff |= a[i] ^ b[i];
+  }
+
+  return diff === 0;
+}
+
+/** Reads given bytes as an unsigned big-endian bigint. */
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
     (acc: bigint, byte: number): bigint =>
@@ -123,7 +139,7 @@ function bytesToBigIntBE(buf: Uint8Array): bigint {
   );
 }
 
-/** Writes given timestamp to big-endian bytes. */
+/** Writes given timestamp to big-endian bytes of an 8-byte out buffer. */
 function bigintToBytesBE(b: bigint, out: Uint8Array): void {
   for (let i: number = out.byteLength - 1; i >= 0; --i) {
     out[i] = Number(b & BIGINT_BYTE_MASK);
@@ -135,7 +151,9 @@ function bigintToBytesBE(b: bigint, out: Uint8Array): void {
 function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
-  buf.set(MAGIC_BWT0, 0); // BWT0
+  buf.set(MAGIC_BWT, 0); // BWT
+
+  //TODO
 
   bigintToBytesBE(BigInt(internalHeader.iat), buf.subarray(4, 12)); // iat
   bigintToBytesBE(BigInt(internalHeader.exp), buf.subarray(12, 20)); // exp
@@ -148,9 +166,18 @@ function internalHeaderToBuffer(internalHeader: InternalHeader): Uint8Array {
 
 /** Converts a buffer to a header and nonce. */
 function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
+  const version: number = buf[3];
+
+  if (
+    !equal(buf.subarray(0, 3), MAGIC_BWT) ||
+    !SUPPORTED_VERSIONS.has(version)
+  ) {
+    return null;
+  }
+
   return [
     {
-      typ: decode(buf.subarray(0, 3), "utf8") + "v" + buf[3],
+      typ: version,
       iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
       exp: Number(bytesToBigIntBE(buf.subarray(12, 20))),
       kid: decode(buf.subarray(20, 36), "base64")
@@ -375,7 +402,7 @@ export function createStringify(
    * header must be a BWT header object.
    * body must be a serializable object with string keys
    * peerPublicKey must be provided if a defaultPeerPublicKey has not been
-   * passed to BWT::createStringify. It can also be used to override a default 
+   * passed to BWT::createStringify. It can also be used to override a default
    * peer public key for an invocation of the stringify function.
    */
   return function stringify(
@@ -408,10 +435,15 @@ export function createStringify(
         null,
         peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
       );
+
       const nonce: Uint8Array = nonceGenerator.next().value;
+
       internalHeader.nonce = nonce;
+
       const aad: Uint8Array = internalHeaderToBuffer(internalHeader);
+
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
+
       const {
         ciphertext,
         tag
@@ -421,6 +453,7 @@ export function createStringify(
         plaintext,
         aad
       );
+
       token = assembleToken(aad, ciphertext, tag);
     } catch (_) {
       return null;
@@ -478,7 +511,7 @@ export function createParse(
    *
    * token must be a BWT token.
    * peerPublicKeys must be provided if no default peer public keys have been
-   * passed to BWT::createParse. This collection can also be used to override 
+   * passed to BWT::createParse. This collection can also be used to override
    * the public key lookup space for the current parse invocation.
    */
   return function parse(
@@ -503,14 +536,20 @@ export function createParse(
 
     try {
       const parts: string[] = token.split(".");
+
       const aad: Uint8Array = encode(parts[0], "base64");
+
       const ciphertext: Uint8Array = encode(parts[1], "base64");
+
       const tag: Uint8Array = encode(parts[2], "base64");
+
       [header, nonce] = bufferToHeaderAndNonce(aad);
+
       const sharedKey: Uint8Array = deriveSharedKey(
         header.kid,
         ...peerPublicKeys
       );
+
       const plaintext: Uint8Array = open(
         sharedKey,
         nonce,
@@ -518,6 +557,7 @@ export function createParse(
         aad,
         tag
       );
+
       body = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
       return null;

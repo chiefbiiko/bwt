@@ -15,7 +15,7 @@ function createHeader(
       ? decode(source.kid, "base64")
       : (source.kid as string);
   return {
-    typ: "BWTv0",
+    typ: bwt.Typ.BWTv0,
     iat: Date.now(),
     exp: Date.now() + 419,
     ...source,
@@ -194,7 +194,7 @@ test({
   name: "stringify nulls if version is unsupported",
   fn(): void {
     const inputHeader: bwt.Header = createHeader({
-      typ: "BWTv419",
+      typ: 419,
       kid: a.kid
     });
 
