@@ -176,7 +176,7 @@ Stringifies a token.
 
 `header` must contain four props: 
 
-+ `typ` set to `"BWTv0"`
++ `typ` set to one of the `bwt.Typ` enum variants
 
 + `iat` a millisecond timestamp indicating the current time 
 
