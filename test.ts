@@ -38,7 +38,11 @@ interface Party {
 
 const a: Party = { ...bwt.generateKeyPair(), stringify: null, name: "alice" };
 const b: Party = { ...bwt.generateKeyPair(), parse: null, name: "bob" };
-const c: Party = { ...bwt.generateKeyPair(), stringify: null, name: "chiefbiiko" };
+const c: Party = {
+  ...bwt.generateKeyPair(),
+  stringify: null,
+  name: "chiefbiiko"
+};
 const d: Party = { ...bwt.generateKeyPair(), parse: null, name: "djb" };
 
 a.stringify = bwt.createStringify(a.secretKey, {

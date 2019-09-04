@@ -176,13 +176,15 @@ Stringifies a token.
 
 `header` must contain four props: 
 
-+ `typ` set to one of the `bwt.Typ` enum variants
++ `typ` set to one of the `bwt.Typ` enum variants or their string representations, e.g. "BWTv0"
 
 + `iat` a millisecond timestamp indicating the current time 
 
 + `exp` a millisecond timestamp indicating the expiry of the token 
 
 + `kid` a base64 string or a binary of 16 bytes, the public key identifier of the issuing party
+
+The above implies that every `BWT` token must expire.
 
 `body` must be an object. Apart from that it can contain any type of fields.  
 
@@ -198,7 +200,7 @@ If `peerPublicKeys` consists of at least one peer public key, it takes precedenc
 
 In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
 
-Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` claims are unsigned integers and `iat <= Date.now() < exp`. 
+Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` claims are unsigned integers, and `iat <= Date.now() < exp`. 
 
 ## Dear Reviewers
 

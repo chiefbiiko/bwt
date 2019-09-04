@@ -9,9 +9,48 @@ import {
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
+/** Supported BWT versions. */
+export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
+
+/** Maximum allowed number of characters of a token. */
+export const MAX_TOKEN_CHARS: number = 4096;
+
+/** Byte length of a Curve25519 secret key. */
+export const SECRET_KEY_BYTES: number = 32;
+
+/** Byte length of a Curve25519 public key. */
+export const PUBLIC_KEY_BYTES: number = 32;
+
+/** Global Curve25519 instance provding a scalar multiplication op. */
+const CURVE25519: Curve25519 = new Curve25519();
+
+/** One-time-compiled regex for checking outputEncoding params.*/
+const BASE64_REGEX: RegExp = /base64/i;
+
+/** Char count of a 16-byte buffer in base64. */
+const BASE64_KID_CHARS: number = 24;
+
+/** Byte length of a serialized header. */
+const HEADER_BYTES: number = 48;
+
+/** BigInt byte mask. */
+const BIGINT_BYTE_MASK: bigint = 255n;
+
+/** BigInt 8. */
+const BIGINT_BYTE_SHIFT: bigint = 8n;
+
+/** "BWT" as buffer. */
+const MAGIC_BWT: Uint8Array = Uint8Array.from([66, 87, 84]);
+
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
   BWTv0
+}
+
+/** Internal object representation adding a nonce to a header object. */
+interface InternalHeader extends Header {
+  nonce?: Uint8Array;
+  kidBuf: Uint8Array;
 }
 
 /**
@@ -80,47 +119,14 @@ export interface PeerPublicKey {
   name?: string | Uint8Array;
 }
 
-/** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
-
-/** Maximum allowed number of characters of a token. */
-export const MAX_TOKEN_CHARS: number = 4096;
-
-/** Byte length of a Curve25519 secret key. */
-export const SECRET_KEY_BYTES: number = 32;
-
-/** Byte length of a Curve25519 public key. */
-export const PUBLIC_KEY_BYTES: number = 32;
-
-/** Global Curve25519 instance provding a scalar multiplication op. */
-const CURVE25519: Curve25519 = new Curve25519();
-
-/** One-time-compiled regex for checking outputEncoding params.*/
-const BASE64_REGEX: RegExp = /base64/i;
-
-/** Char count of a 16-byte buffer in base64. */
-const BASE64_KID_CHARS: number = 24;
-
-/** Byte length of a serialized header. */
-const HEADER_BYTES: number = 48;
-
-/** BigInt byte mask. */
-const BIGINT_BYTE_MASK: bigint = 255n;
-
-/** BigInt 8. */
-const BIGINT_BYTE_SHIFT: bigint = 8n;
-
-/** "BWT" as buffer. */
-const MAGIC_BWT: Uint8Array = encode("BWT", "utf8");
-
-/** Internal object representation adding a nonce to a header object. */
-interface InternalHeader extends Header {
-  nonce?: Uint8Array;
-  kidBuf: Uint8Array;
+/** Return values of the AEAD seal op. */
+interface Sealed {
+  ciphertext: Uint8Array;
+  tag: Uint8Array;
 }
 
 /** Bike-shed constant-time buffer equality check. */
-export function equal(a: Uint8Array, b: Uint8Array): boolean {
+function equal(a: Uint8Array, b: Uint8Array): boolean {
   let diff: number = a.length === b.length ? 0 : 1;
 
   for (let i: number = Math.max(a.length, b.length) - 1; i >= 0; --i) {
@@ -401,7 +407,7 @@ export function createStringify(
    * header must be a BWT header object.
    * body must be a serializable object with string keys
    * peerPublicKey must be provided if a defaultPeerPublicKey has not been
-   * passed to BWT::createStringify. It can also be used to override a default
+   * passed to bwt.createStringify. It can also be used to override a default
    * peer public key for an invocation of the stringify function.
    */
   return function stringify(
@@ -443,17 +449,9 @@ export function createStringify(
 
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
 
-      const {
-        ciphertext,
-        tag
-      }: { ciphertext: Uint8Array; tag: Uint8Array } = seal(
-        sharedKey,
-        nonce,
-        plaintext,
-        aad
-      );
+      const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad);
 
-      token = assembleToken(aad, ciphertext, tag);
+      token = assembleToken(aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
       return null;
     }
@@ -510,7 +508,7 @@ export function createParse(
    *
    * token must be a BWT token.
    * peerPublicKeys must be provided if no default peer public keys have been
-   * passed to BWT::createParse. This collection can also be used to override
+   * passed to bwt.createParse. This collection can also be used to override
    * the public key lookup space for the current parse invocation.
    */
   return function parse(
