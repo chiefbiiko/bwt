@@ -21,6 +21,9 @@ export const SECRET_KEY_BYTES: number = 32;
 /** Byte length of a Curve25519 public key. */
 export const PUBLIC_KEY_BYTES: number = 32;
 
+/** Byte length of a BWT kid. */
+export const KID_BYTES: number = 16;
+
 /** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
 
@@ -125,8 +128,23 @@ interface Sealed {
   tag: Uint8Array;
 }
 
+/** Generates an uuid4. */
+export function rawUuidv4() {
+  const buf: Uint8Array = crypto.getRandomValues(new Uint8Array(KID_BYTES));
+
+  buf[6] = (buf[6] & 0x0f) | 0x40;
+  buf[8] = (buf[8] & 0x3f) | 0x80;
+
+  return buf;
+}
+
+/** Zeros out memory. */
+function zeroBuf(buf: Uint8Array): void {
+  buf.fill(0x00, 0, buf.byteLength);
+}
+
 /** Bike-shed constant-time buffer equality check. */
-function equal(a: Uint8Array, b: Uint8Array): boolean {
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   let diff: number = a.length === b.length ? 0 : 1;
 
   for (let i: number = Math.max(a.length, b.length) - 1; i >= 0; --i) {
@@ -174,7 +192,7 @@ function bufferToHeaderAndNonce(buf: Uint8Array): [Header, Uint8Array] {
   const version: number = buf[3];
 
   if (
-    !equal(buf.subarray(0, 3), MAGIC_BWT) ||
+    !constantTimeEqual(buf.subarray(0, 3), MAGIC_BWT) ||
     !SUPPORTED_VERSIONS.has(version)
   ) {
     return null;
@@ -351,11 +369,15 @@ export function generateKeyPair(outputEncoding?: string): KeyPair {
     publicKey: Uint8Array;
   } = CURVE25519.generateKeys(crypto.getRandomValues(new Uint8Array(32)));
 
-  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
+  const kid: Uint8Array = rawUuidv4();
 
   if (outputEncoding) {
+    const secretKey: string = decode(keypair.secretKey, "base64");
+
+    zeroBuf(keypair.secretKey);
+
     return {
-      secretKey: decode(keypair.secretKey, "base64"),
+      secretKey,
       publicKey: decode(keypair.publicKey, "base64"),
       kid: decode(kid, "base64")
     };
@@ -377,6 +399,12 @@ export function createStringify(
 ): Stringify {
   if (typeof ownSecretKey === "string") {
     ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
+
+    if (!isValidSecretKey(ownSecretKey)) {
+      zeroBuf(ownSecretKey);
+
+      throw new TypeError("invalid secret key");
+    }
   }
 
   if (!isValidSecretKey(ownSecretKey)) {
@@ -478,6 +506,12 @@ export function createParse(
 ): Parse {
   if (typeof ownSecretKey === "string") {
     ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
+
+    if (!isValidSecretKey(ownSecretKey)) {
+      zeroBuf(ownSecretKey);
+
+      throw new TypeError("invalid secret key");
+    }
   }
 
   if (!isValidSecretKey(ownSecretKey)) {

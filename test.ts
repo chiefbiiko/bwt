@@ -1,5 +1,8 @@
 import { test, runIfMain } from "https://deno.land/std/testing/mod.ts";
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import {
+  assertEquals,
+  assertThrows
+} from "https://deno.land/std/testing/asserts.ts";
 import {
   encode,
   decode
@@ -175,6 +178,99 @@ test({
 
     assertEquals(header, inputHeader);
     assertEquals(body, inputBody);
+  }
+});
+
+test({
+  name: "generateKeyPair throws if outputEncoding is invalid",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.generateKeyPair("base44");
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createStringify throws if ownSecretKey is an invalid base64 string",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createStringify("Qldu");
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createStringify throws if ownSecretKey is an invalid buffer",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createStringify(Uint8Array.from([1, 2, 3]));
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createStringify throws if defaultPeerPublicKey.publicKey is invalid",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
+        kid: new Uint8Array(bwt.KID_BYTES)
+      });
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createStringify throws if defaultPeerPublicKe.kid is invalid",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+        kid: new Uint8Array(bwt.KID_BYTES - 1)
+      });
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createParse throws if ownSecretKey is an invalid base64 string",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createParse("Qldu");
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createParse throws if ownSecretKey is an invalid buffer",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createParse(Uint8Array.from([1, 2, 3]));
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createParse throws if defaultPeerPublicKey.publicKey is invalid",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
+        kid: new Uint8Array(bwt.KID_BYTES)
+      });
+    }, TypeError);
+  }
+});
+
+test({
+  name: "createParse throws if defaultPeerPublicKey.kid is invalid",
+  fn(): void {
+    assertThrows((): void => {
+      bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+        kid: new Uint8Array(bwt.KID_BYTES - 1)
+      });
+    }, TypeError);
   }
 });
 
