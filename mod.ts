@@ -128,16 +128,6 @@ interface Sealed {
   tag: Uint8Array;
 }
 
-/** Generates an uuid4. */
-export function rawUuidv4() {
-  const buf: Uint8Array = crypto.getRandomValues(new Uint8Array(KID_BYTES));
-
-  buf[6] = (buf[6] & 0x0f) | 0x40;
-  buf[8] = (buf[8] & 0x3f) | 0x80;
-
-  return buf;
-}
-
 /** Zeros out memory. */
 function zeroBuf(buf: Uint8Array): void {
   buf.fill(0x00, 0, buf.byteLength);
@@ -364,12 +354,18 @@ export function generateKeyPair(outputEncoding?: string): KeyPair {
     throw new TypeError('outputEncoding must be undefined or "base64"');
   }
 
+  const seed: Uint8Array = crypto.getRandomValues(
+    new Uint8Array(SECRET_KEY_BYTES)
+  );
+
   const keypair: {
     secretKey: Uint8Array;
     publicKey: Uint8Array;
-  } = CURVE25519.generateKeys(crypto.getRandomValues(new Uint8Array(32)));
+  } = CURVE25519.generateKeys(seed);
 
-  const kid: Uint8Array = rawUuidv4();
+  zeroBuf(seed);
+
+  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(KID_BYTES));
 
   if (outputEncoding) {
     const secretKey: string = decode(keypair.secretKey, "base64");
