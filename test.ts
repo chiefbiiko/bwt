@@ -10,13 +10,13 @@ import {
 
 import * as bwt from "./mod.ts";
 
-function createHeader( source: { [key: string]: any } = {}): bwt.Header {
+function createHeader(source: { [key: string]: any } = {}): bwt.Header {
   return {
     typ: bwt.Typ.BWTv0,
     iat: Date.now(),
     exp: Date.now() + 419,
     kid: source.kid,
-            ...source,
+    ...source
   };
 }
 
@@ -26,16 +26,16 @@ function createBody(...sources: bwt.Body[]): bwt.Body {
 
 interface Party {
   name: string;
-  kid:  Uint8Array;
+  kid: Uint8Array;
   secretKey: Uint8Array;
-  publicKey:  Uint8Array;
+  publicKey: Uint8Array;
   stringify?: bwt.Stringify;
   parse?: bwt.Parse;
 }
 
 const a: Party = { ...bwt.generateKeyPair(), stringify: null, name: "alice" };
 const b: Party = { ...bwt.generateKeyPair(), parse: null, name: "bob" };
-const c: Party = { ...bwt.generateKeyPair(), stringify: null, name: "chief"};
+const c: Party = { ...bwt.generateKeyPair(), stringify: null, name: "chief" };
 // const d: Party = { ...bwt.generateKeyPair(), parse: null, name: "djb" };
 
 a.stringify = bwt.createStringify(a.secretKey, {
@@ -63,12 +63,6 @@ c.stringify = bwt.createStringify(c.secretKey, {
   kid: b.kid,
   publicKey: b.publicKey
 });
-
-// d.parse = bwt.createParse(d.secretKey, {
-//   name: c.name,
-//   kid: c.kid,
-//   publicKey: c.publicKey
-// });
 
 test({
   name: "alice and bob",
@@ -114,84 +108,6 @@ test({
   }
 });
 
-// test({
-//   name: "stringify with particular public key",
-//   fn(): void {
-//     const inputHeader: bwt.Header = createHeader({ kid: c.kid });
-//     const inputBody: bwt.Body = createBody();
-//
-//     const token: string = c.stringify(inputHeader, inputBody, {
-//       kid: d.kid,
-//       publicKey: d.publicKey
-//     });
-//
-//     const { header, body }: bwt.Contents = d.parse(token);
-//
-//     assertEquals(header, inputHeader);
-//     assertEquals(body, inputBody);
-//   }
-// });
-//
-// test({
-//   name: "parse with particular public key",
-//   fn(): void {
-//     const inputHeader: bwt.Header = createHeader({ kid: a.kid });
-//     const inputBody: bwt.Body = createBody();
-//
-//     const token: string = a.stringify(inputHeader, inputBody, {
-//       kid: d.kid,
-//       publicKey: d.publicKey
-//     });
-//
-//     const { header, body }: bwt.Contents = d.parse(token, {
-//       kid: a.kid,
-//       publicKey: a.publicKey
-//     });
-//
-//     assertEquals(header, inputHeader);
-//     assertEquals(body, inputBody);
-//   }
-// });
-
-// test({
-//   name: "keys can can be binary and/or base64",
-//   fn(): void {
-//     const inputHeader: bwt.Header = createHeader({ kid: a.kid });
-//     const inputBody: bwt.Body = createBody();
-// 
-//     const token: string = a.stringify(inputHeader, inputBody);
-// 
-//     const { header, body }: bwt.Contents = b.parse(token, {
-//       publicKey: decode(a.publicKey as Uint8Array, "base64"),
-//       kid: a.kid
-//     });
-// 
-//     assertEquals(header, inputHeader);
-//     assertEquals(body, inputBody);
-//   }
-// });
-
-// test({
-//   name: "generateKeyPair throws if outputEncoding is invalid",
-//   fn(): void {
-//     assertThrows((): void => {
-//       bwt.generateKeyPair("base44");
-//     }, TypeError);
-//   }
-// });
-
-// test({
-//   name: "createStringify throws if ownSecretKey is an invalid base64 string",
-//   fn(): void {
-//     assertThrows((): void => {
-//       bwt.createStringify("Qldu", {
-//         publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-//         kid: "a".repeat(24)
-//       });
-//     }, TypeError);
-//   }
-// });
-
 test({
   name: "createStringify throws if ownSecretKey is an invalid buffer",
   fn(): void {
@@ -227,15 +143,6 @@ test({
     }, TypeError);
   }
 });
-
-// test({
-//   name: "createParse throws if ownSecretKey is an invalid base64 string",
-//   fn(): void {
-//     assertThrows((): void => {
-//       bwt.createParse("Qldu");
-//     }, TypeError);
-//   }
-// });
 
 test({
   name: "createParse throws if ownSecretKey is an invalid buffer",

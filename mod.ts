@@ -27,9 +27,6 @@ export const KID_BYTES: number = 16;
 /** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
 
-// /** One-time-compiled regex for checking outputEncoding params.*/
-// const BASE64_REGEX: RegExp = /base64/i;
-
 /** Char count of a 16-byte buffer in base64. */
 const BASE64_KID_CHARS: number = 24;
 
@@ -65,14 +62,6 @@ export interface Header {
   kid: Uint8Array;
 }
 
-// /** Internal object representation adding a nonce to a header object. */
-// interface InternalHeader extends Header {
-//   nonce: Uint8Array;
-// }
-
-// /** Token metadata. */
-// type Metadata = [Uint8Array, string, Header, Uint8Array]; 
-
 /** BWT body object. */
 export interface Body {
   [key: string]: unknown;
@@ -105,7 +94,7 @@ export interface Parse {
  */
 export interface KeyPair {
   secretKey: Uint8Array;
-  publicKey:  Uint8Array;
+  publicKey: Uint8Array;
   kid: Uint8Array;
 }
 
@@ -169,59 +158,27 @@ function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
   bigintToBytesBE(BigInt(header.exp), buf.subarray(12, 20));
 
   buf.set(header.kid, 20);
-  buf.set(nonce, 36); 
+  buf.set(nonce, 36);
 
   return buf;
 }
 
 /** Converts a buffer to metadata of the form: [magic, kid, header, nonce]. */
-function bufferToMetadata(buf: Uint8Array): [Uint8Array, string, Header, Uint8Array] {
+function bufferToMetadata(
+  buf: Uint8Array
+): [Uint8Array, string, Header, Uint8Array] {
   return [
-     buf.subarray(0, 3),
-     decode(buf.subarray(20, 36), "base64"),
-     {
+    buf.subarray(0, 3),
+    decode(buf.subarray(20, 36), "base64"),
+    {
       typ: buf[3],
       iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
       exp: Number(bytesToBigIntBE(buf.subarray(12, 20))),
       kid: buf.subarray(20, 36)
     },
     buf.subarray(36, HEADER_BYTES)
-  ]
+  ];
 }
-
-// /**
-//  * Normalizes a peer pubilc key object by assuring its kid is a base64 string
-//  * and ensuring that its publicKey prop is a Uint8Array.
-//  */
-// function normalizePeerPublicKey(peerPublicKey: PeerPublicKey): PeerPublicKey {
-//   let clone: PeerPublicKey;
-// 
-//   if (typeof peerPublicKey.publicKey === "string") {
-//     clone = {
-//       ...peerPublicKey,
-//       publicKey: encode(peerPublicKey.publicKey, "base64")
-//     };
-//   }
-// 
-//   if (typeof peerPublicKey.kid !== "string") {
-//     if (!clone) {
-//       clone = { ...peerPublicKey, kid: decode(peerPublicKey.kid, "base64") };
-//     } else {
-//       clone.kid = decode(peerPublicKey.kid, "base64");
-//     }
-//   }
-// 
-//   return clone || peerPublicKey;
-// }
-// 
-// /** Normalizes a header object by assuring its kid is a base64 string. */
-// function normalizeHeader(header: Header): InternalHeader {
-//   if (header.kid instanceof Uint8Array) {
-//     return { ...header, kidBuf: header.kid, kid: decode(header.kid, "base64") };
-//   } else if (typeof header.kid === "string") {
-//     return { ...header, kidBuf: encode(header.kid, "base64"), kid: header.kid };
-//   }
-// }
 
 /** Creates a nonce generator that is based on the current timestamp. */
 function* createNonceGenerator(): Generator {
@@ -241,7 +198,7 @@ function toSharedKeyMap(
     peerPublicKeys.map(
       (peerPublicKey: PeerPublicKey): [string, Uint8Array] => [
         decode(peerPublicKey.kid, "base64"),
-        CURVE25519.scalarMult( ownSecretKey, peerPublicKey.publicKey   )
+        CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey)
       ]
     )
   );
@@ -305,11 +262,7 @@ function hasValidTokenSize(x: string): boolean {
 }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
-export function generateKeyPair(/*outputEncoding?: string*/): KeyPair {
-  // if (outputEncoding && !BASE64_REGEX.test(outputEncoding)) {
-  //   throw new TypeError('outputEncoding must be undefined or "base64"');
-  // }
-
+export function generateKeyPair(): KeyPair {
   const seed: Uint8Array = crypto.getRandomValues(
     new Uint8Array(SECRET_KEY_BYTES)
   );
@@ -323,18 +276,6 @@ export function generateKeyPair(/*outputEncoding?: string*/): KeyPair {
 
   const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(KID_BYTES));
 
-  // if (outputEncoding) {
-  //   const secretKey: string = decode(keypair.secretKey, "base64");
-  // 
-  //   keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
-  // 
-  //   return {
-  //     secretKey,
-  //     publicKey: decode(keypair.publicKey, "base64"),
-  //     kid: decode(kid, "base64")
-  //   };
-  // }
-
   return { ...keypair, kid };
 }
 
@@ -346,24 +287,12 @@ export function generateKeyPair(/*outputEncoding?: string*/): KeyPair {
  * default for all subsequent invocations of the returned stringify function.
  */
 export function createStringify(
-  ownSecretKey: /*string | */Uint8Array,
+  ownSecretKey: Uint8Array,
   peerPublicKey: PeerPublicKey
 ): Stringify {
-  // if (typeof ownSecretKey === "string") {
-  //   ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
-  // 
-  //   if (!isValidSecretKey(ownSecretKey)) {
-  //     ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
-  // 
-  //     throw new TypeError("invalid secret key");
-  //   }
-  // }
-
   if (!isValidSecretKey(ownSecretKey)) {
     throw new TypeError("invalid secret key");
   }
-
-  // peerPublicKey = normalizePeerPublicKey(peerPublicKey);
 
   if (!isValidPeerPublicKey(peerPublicKey)) {
     throw new TypeError("invalid peer public key");
@@ -371,7 +300,9 @@ export function createStringify(
 
   const nonceGenerator: Generator = createNonceGenerator();
 
-  const sharedKey: Uint8Array = CURVE25519.scalarMult( ownSecretKey, peerPublicKey.publicKey
+  const sharedKey: Uint8Array = CURVE25519.scalarMult(
+    ownSecretKey,
+    peerPublicKey.publicKey
   );
 
   ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
@@ -386,12 +317,6 @@ export function createStringify(
    * peer public key for an invocation of the stringify function.
    */
   return function stringify(header: Header, body: Body): string {
-    // if (!header || !body) {
-    //   return null;
-    // }
-
-    // const internalHeader: InternalHeader = normalizeHeader(header);
-
     if (!isValidHeader(header) || !body) {
       return null;
     }
@@ -401,10 +326,7 @@ export function createStringify(
     try {
       const nonce: Uint8Array = nonceGenerator.next().value;
 
-      // internalHeader.nonce = nonce;
-
-      // const aad: Uint8Array = internalHeaderToBuffer(internalHeader);
-            const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
+      const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
 
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
 
@@ -432,19 +354,9 @@ export function createStringify(
  * the returned parse function.
  */
 export function createParse(
-  ownSecretKey:  Uint8Array,
+  ownSecretKey: Uint8Array,
   ...peerPublicKeys: PeerPublicKey[]
 ): Parse {
-  // if (typeof ownSecretKey === "string") {
-  //   ownSecretKey = encode(ownSecretKey, "base64") as Uint8Array;
-  // 
-  //   if (!isValidSecretKey(ownSecretKey)) {
-  //     ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
-  // 
-  //     throw new TypeError("invalid secret key");
-  //   }
-  // }
-
   if (!isValidSecretKey(ownSecretKey)) {
     throw new TypeError("invalid secret key");
   }
@@ -452,8 +364,6 @@ export function createParse(
   if (!peerPublicKeys.length) {
     throw new TypeError("no peer public keys provided");
   }
-
-  // peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
 
   if (!peerPublicKeys.every(isValidPeerPublicKey)) {
     throw new TypeError("invalid peer public keys");
@@ -483,7 +393,7 @@ export function createParse(
     }
 
     let magic: Uint8Array;
-    let kid:string
+    let kid: string;
     let header: Header;
     let nonce: Uint8Array;
     let body: Body;
@@ -492,11 +402,11 @@ export function createParse(
       const parts: string[] = token.split(".");
 
       const aad: Uint8Array = encode(parts[0], "base64");
-      
-       [ magic, kid, header, nonce ] = bufferToMetadata(aad);
-      
+
+      [magic, kid, header, nonce] = bufferToMetadata(aad);
+
       if (!constantTimeEqual(magic, MAGIC_BWT) || !isValidHeader(header)) {
-        return null
+        return null;
       }
 
       const ciphertext: Uint8Array = encode(parts[1], "base64");
@@ -505,7 +415,13 @@ export function createParse(
 
       const sharedKey: Uint8Array = sharedKeyCache.get(kid);
 
-      const plaintext: Uint8Array = open(sharedKey, nonce, ciphertext, aad, tag);
+      const plaintext: Uint8Array = open(
+        sharedKey,
+        nonce,
+        ciphertext,
+        aad,
+        tag
+      );
 
       body = JSON.parse(decode(plaintext, "utf8"));
     } catch (_) {
