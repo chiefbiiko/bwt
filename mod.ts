@@ -24,14 +24,11 @@ export const PUBLIC_KEY_BYTES: number = 32;
 /** Byte length of a BWT kid. */
 export const KID_BYTES: number = 16;
 
-/** Global Curve25519 instance provding a scalar multiplication op. */
-const CURVE25519: Curve25519 = new Curve25519();
-
-/** Char count of a 16-byte buffer in base64. */
-const BASE64_KID_CHARS: number = 24;
-
 /** Byte length of a serialized header. */
 const HEADER_BYTES: number = 48;
+
+/** Global Curve25519 instance provding a scalar multiplication op. */
+const CURVE25519: Curve25519 = new Curve25519();
 
 /** BigInt byte mask. */
 const BIGINT_BYTE_MASK: bigint = 255n;
@@ -89,8 +86,6 @@ export interface Parse {
  * secretKey is the 32-byte secret key.
  * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
- *
- * Any of the above properties can either be buffers or base64 strings.
  */
 export interface KeyPair {
   secretKey: Uint8Array;
@@ -103,9 +98,7 @@ export interface KeyPair {
  *
  * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
- * name can be an arbitrarily encoded string or a buffer.
- *
- * publicKey and kid can either be buffers or base64 strings.
+ * name can be an arbitrarily encoded string.
  */
 export interface PeerPublicKey {
   publicKey: Uint8Array;
@@ -121,9 +114,9 @@ interface Sealed {
 
 /** Bike-shed constant-time buffer equality check. */
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  let diff: number = a.length === b.length ? 0 : 1;
+  let diff: number = a.byteLength === b.byteLength ? 0 : 1;
 
-  for (let i: number = Math.max(a.length, b.length) - 1; i >= 0; --i) {
+  for (let i: number = Math.max(a.byteLength, b.byteLength) - 1; i >= 0; --i) {
     diff |= a[i] ^ b[i];
   }
 
@@ -163,19 +156,19 @@ function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
   return buf;
 }
 
-/** Converts a buffer to metadata of the form: [magic, kid, header, nonce]. */
+/** Converts a buffer to metadata of the form: [magic, header, kid, nonce]. */
 function bufferToMetadata(
   buf: Uint8Array
-): [Uint8Array, string, Header, Uint8Array] {
+): [Uint8Array, Header, string, Uint8Array] {
   return [
     buf.subarray(0, 3),
-    decode(buf.subarray(20, 36), "base64"),
     {
       typ: buf[3],
       iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
       exp: Number(bytesToBigIntBE(buf.subarray(12, 20))),
       kid: buf.subarray(20, 36)
     },
+    decode(buf.subarray(20, 36), "base64"),
     buf.subarray(36, HEADER_BYTES)
   ];
 }
@@ -226,7 +219,7 @@ function isValidHeader(x: any): boolean {
     x &&
     SUPPORTED_VERSIONS.has(x.typ) &&
     x.kid &&
-    (x.kid.lengt === BASE64_KID_CHARS || x.kid.byteLength === KID_BYTES) &&
+    x.kid.byteLength === KID_BYTES &&
     x.iat >= 0 &&
     x.iat % 1 === 0 &&
     x.iat <= now &&
@@ -369,7 +362,7 @@ export function createParse(
     throw new TypeError("invalid peer public keys");
   }
 
-  const sharedKeyCache: Map<string, Uint8Array> = toSharedKeyMap(
+  const sharedKeyMap: Map<string, Uint8Array> = toSharedKeyMap(
     ownSecretKey,
     peerPublicKeys
   );
@@ -403,7 +396,7 @@ export function createParse(
 
       const aad: Uint8Array = encode(parts[0], "base64");
 
-      [magic, kid, header, nonce] = bufferToMetadata(aad);
+      [magic, header, kid, nonce] = bufferToMetadata(aad);
 
       if (!constantTimeEqual(magic, MAGIC_BWT) || !isValidHeader(header)) {
         return null;
@@ -413,7 +406,7 @@ export function createParse(
 
       const tag: Uint8Array = encode(parts[2], "base64");
 
-      const sharedKey: Uint8Array = sharedKeyCache.get(kid);
+      const sharedKey: Uint8Array = sharedKeyMap.get(kid);
 
       const plaintext: Uint8Array = open(
         sharedKey,
