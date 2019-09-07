@@ -237,6 +237,14 @@ function* createNonceGenerator(): Generator {
   }
 }
 
+/** Transforms a collection of peer public keys to a shared key map. */
+function toSharedKeyMap(ownSecretKey: Uint8Array, peerPublicKeys: PeerPublicKey[]): Map<string, Uint8Array> {
+  return new Map<string, Uint8Array>(
+    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] =>  [
+      peerPublicKey.kid as string, CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey as Uint8Array)])
+  ); 
+}
+
 // /** Transforms a collection of public keys to a map representation. */
 // function toPublicKeyMap(
 //   ...peerPublicKeys: PeerPublicKey[]
@@ -419,8 +427,8 @@ export function createStringify(
   // );
   
   const sharedKey: Uint8Array = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey as Uint8Array);
-
-  // TODO: CLEAR secret key 
+  
+  ownSecretKey.fill(0x00,0,ownSecretKey.byteLength)
 
   /**
    * Stringifies header and body to an authenticated and encrypted token.
@@ -531,12 +539,9 @@ export function createParse(
   //   null
   // );
   
-  const sharedKeyCache: Map<string, Uint8Array> = new Map<string, Uint8Array>(
-    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] =>  [
-      peerPublicKey.kid as string, CURVE25519.scalarMult(ownSecretKey as Uint8Array, peerPublicKey.publicKey as Uint8Array)])
-  ); 
+  const sharedKeyCache: Map<string, Uint8Array> = toSharedKeyMap(ownSecretKey, peerPublicKeys)
   
-  // TODO: CLEAR secret key 
+  ownSecretKey.fill(0x00,0,ownSecretKey.byteLength)
 
   /**
    * Parses the contents of a BWT token.
