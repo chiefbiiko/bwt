@@ -238,25 +238,22 @@ function* createNonceGenerator(): Generator {
 }
 
 /** Transforms a collection of peer public keys to a shared key map. */
-function toSharedKeyMap(ownSecretKey: Uint8Array, peerPublicKeys: PeerPublicKey[]): Map<string, Uint8Array> {
+function toSharedKeyMap(
+  ownSecretKey: Uint8Array,
+  peerPublicKeys: PeerPublicKey[]
+): Map<string, Uint8Array> {
   return new Map<string, Uint8Array>(
-    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] =>  [
-      peerPublicKey.kid as string, CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey as Uint8Array)])
-  ); 
+    peerPublicKeys.map(
+      (peerPublicKey: PeerPublicKey): [string, Uint8Array] => [
+        peerPublicKey.kid as string,
+        CURVE25519.scalarMult(
+          ownSecretKey,
+          peerPublicKey.publicKey as Uint8Array
+        )
+      ]
+    )
+  );
 }
-
-// /** Transforms a collection of public keys to a map representation. */
-// function toPublicKeyMap(
-//   ...peerPublicKeys: PeerPublicKey[]
-// ): Map<string, Uint8Array> {
-//   const map: Map<string, Uint8Array> = new Map<string, Uint8Array>();
-// 
-//   for (const peerPublicKey of peerPublicKeys) {
-//     map.set(peerPublicKey.kid as string, peerPublicKey.publicKey as Uint8Array);
-//   }
-// 
-//   return map;
-// }
 
 /** Concatenates aad, ciphertext, and tag to a token. */
 function assembleToken(
@@ -314,42 +311,6 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
 function hasValidTokenSize(x: string): boolean {
   return x && x.length <= MAX_TOKEN_CHARS;
 }
-
-// /** Efficiently derives a shared key from recurring kid strings. */
-// function deriveSharedKeyProto(
-//   secretKey: Uint8Array,
-//   sharedKeyCache: Map<string, Uint8Array>,
-//   defaultPublicKeyMap: Map<string, Uint8Array>,
-//   defaultKid: string,
-//   kid: string = defaultKid,
-//   ...peerPublicKeySpace: PeerPublicKey[]
-// ): Uint8Array {
-//   if (sharedKeyCache.has(kid)) {
-//     return sharedKeyCache.get(kid);
-//   }
-// 
-//   let publicKey: Uint8Array;
-// 
-//   if (peerPublicKeySpace.length) {
-//     let peerPublicKey: PeerPublicKey = peerPublicKeySpace.find(
-//       ({ kid: _kid }: PeerPublicKey): boolean => _kid === kid
-//     );
-// 
-//     publicKey = peerPublicKey ? (peerPublicKey.publicKey as Uint8Array) : null;
-//   } else if (defaultPublicKeyMap.has(kid)) {
-//     publicKey = defaultPublicKeyMap.get(kid);
-//   }
-// 
-//   if (!publicKey) {
-//     return null;
-//   }
-// 
-//   const sharedKey: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
-// 
-//   sharedKeyCache.set(kid, sharedKey);
-// 
-//   return sharedKey;
-// }
 
 /** Generates a BWT key pair, optionally base64 encoded. */
 export function generateKeyPair(outputEncoding?: string): KeyPair {
@@ -418,17 +379,12 @@ export function createStringify(
 
   const nonceGenerator: Generator = createNonceGenerator();
 
-  // const deriveSharedKey: Function = deriveSharedKeyProto.bind(
-  //   null,
-  //   ownSecretKey,
-  //   new Map<string, Uint8Array>(),
-  //   toPublicKeyMap(defaultPeerPublicKey),
-  //   defaultPeerPublicKey ? defaultPeerPublicKey.kid : null
-  // );
-  
-  const sharedKey: Uint8Array = CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey as Uint8Array);
-  
-  ownSecretKey.fill(0x00,0,ownSecretKey.byteLength)
+  const sharedKey: Uint8Array = CURVE25519.scalarMult(
+    ownSecretKey,
+    peerPublicKey.publicKey as Uint8Array
+  );
+
+  ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
 
   /**
    * Stringifies header and body to an authenticated and encrypted token.
@@ -439,11 +395,7 @@ export function createStringify(
    * passed to bwt.createStringify. It can also be used to override a default
    * peer public key for an invocation of the stringify function.
    */
-  return function stringify(
-    header: Header,
-    body: Body,
-    // peerPublicKey?: PeerPublicKey
-  ): string {
+  return function stringify(header: Header, body: Body): string {
     if (!header || !body) {
       return null;
     }
@@ -454,22 +406,9 @@ export function createStringify(
       return null;
     }
 
-    // if (peerPublicKey) {
-    //   peerPublicKey = normalizePeerPublicKey(peerPublicKey);
-    // 
-    //   if (!isValidPeerPublicKey(peerPublicKey)) {
-    //     return null;
-    //   }
-    // }
-
     let token: string;
 
     try {
-      // const sharedKey: Uint8Array = deriveSharedKey.apply(
-      //   null,
-      //   peerPublicKey ? [peerPublicKey.kid, peerPublicKey] : []
-      // );
-
       const nonce: Uint8Array = nonceGenerator.next().value;
 
       internalHeader.nonce = nonce;
@@ -519,29 +458,22 @@ export function createParse(
     throw new TypeError("invalid secret key");
   }
 
-
-
   if (!peerPublicKeys.length) {
-       throw new TypeError("no peer public keys provided");
+    throw new TypeError("no peer public keys provided");
   }
-  
+
   peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
 
   if (!peerPublicKeys.every(isValidPeerPublicKey)) {
     throw new TypeError("invalid peer public keys");
   }
 
-  // const deriveSharedKey: Function = deriveSharedKeyProto.bind(
-  //   null,
-  //   ownSecretKey,
-  //   new Map<string, Uint8Array>(),
-  //   toPublicKeyMap(...defaultPeerPublicKeys),
-  //   null
-  // );
-  
-  const sharedKeyCache: Map<string, Uint8Array> = toSharedKeyMap(ownSecretKey, peerPublicKeys)
-  
-  ownSecretKey.fill(0x00,0,ownSecretKey.byteLength)
+  const sharedKeyCache: Map<string, Uint8Array> = toSharedKeyMap(
+    ownSecretKey,
+    peerPublicKeys
+  );
+
+  ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
 
   /**
    * Parses the contents of a BWT token.
@@ -554,21 +486,10 @@ export function createParse(
    * passed to bwt.createParse. This collection can also be used to override
    * the public key lookup space for the current parse invocation.
    */
-  return function parse(
-    token: string,
-    // ...peerPublicKeys: PeerPublicKey[]
-  ): Contents {
+  return function parse(token: string): Contents {
     if (!hasValidTokenSize(token)) {
       return null;
     }
-
-    // if (peerPublicKeys.length) {
-    //   peerPublicKeys = peerPublicKeys.map(normalizePeerPublicKey);
-    // 
-    //   if (!peerPublicKeys.every(isValidPeerPublicKey)) {
-    //     return null;
-    //   }
-    // }
 
     let header: Header;
     let nonce: Uint8Array;
@@ -586,10 +507,6 @@ export function createParse(
       [header, nonce] = bufferToHeaderAndNonce(aad);
 
       const sharedKey: Uint8Array = sharedKeyCache.get(header.kid as string);
-      // deriveSharedKey(
-      //   header.kid,
-      //   ...peerPublicKeys
-      // );
 
       const plaintext: Uint8Array = open(
         sharedKey,
