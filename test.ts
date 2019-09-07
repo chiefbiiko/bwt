@@ -124,44 +124,44 @@ test({
   }
 });
 
-test({
-  name: "stringify with particular public key",
-  fn(): void {
-    const inputHeader: bwt.Header = createHeader({ kid: c.kid });
-    const inputBody: bwt.Body = createBody();
-
-    const token: string = c.stringify(inputHeader, inputBody, {
-      kid: d.kid,
-      publicKey: d.publicKey
-    });
-
-    const { header, body }: bwt.Contents = d.parse(token);
-
-    assertEquals(header, inputHeader);
-    assertEquals(body, inputBody);
-  }
-});
-
-test({
-  name: "parse with particular public key",
-  fn(): void {
-    const inputHeader: bwt.Header = createHeader({ kid: a.kid });
-    const inputBody: bwt.Body = createBody();
-
-    const token: string = a.stringify(inputHeader, inputBody, {
-      kid: d.kid,
-      publicKey: d.publicKey
-    });
-
-    const { header, body }: bwt.Contents = d.parse(token, {
-      kid: a.kid,
-      publicKey: a.publicKey
-    });
-
-    assertEquals(header, inputHeader);
-    assertEquals(body, inputBody);
-  }
-});
+// test({
+//   name: "stringify with particular public key",
+//   fn(): void {
+//     const inputHeader: bwt.Header = createHeader({ kid: c.kid });
+//     const inputBody: bwt.Body = createBody();
+// 
+//     const token: string = c.stringify(inputHeader, inputBody, {
+//       kid: d.kid,
+//       publicKey: d.publicKey
+//     });
+// 
+//     const { header, body }: bwt.Contents = d.parse(token);
+// 
+//     assertEquals(header, inputHeader);
+//     assertEquals(body, inputBody);
+//   }
+// });
+// 
+// test({
+//   name: "parse with particular public key",
+//   fn(): void {
+//     const inputHeader: bwt.Header = createHeader({ kid: a.kid });
+//     const inputBody: bwt.Body = createBody();
+// 
+//     const token: string = a.stringify(inputHeader, inputBody, {
+//       kid: d.kid,
+//       publicKey: d.publicKey
+//     });
+// 
+//     const { header, body }: bwt.Contents = d.parse(token, {
+//       kid: a.kid,
+//       publicKey: a.publicKey
+//     });
+// 
+//     assertEquals(header, inputHeader);
+//     assertEquals(body, inputBody);
+//   }
+// });
 
 test({
   name: "keys can can be binary and/or base64",
@@ -194,7 +194,7 @@ test({
   name: "createStringify throws if ownSecretKey is an invalid base64 string",
   fn(): void {
     assertThrows((): void => {
-      bwt.createStringify("Qldu");
+      bwt.createStringify("Qldu", { publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES), kid: "a".repeat(24)});
     }, TypeError);
   }
 });
@@ -203,7 +203,7 @@ test({
   name: "createStringify throws if ownSecretKey is an invalid buffer",
   fn(): void {
     assertThrows((): void => {
-      bwt.createStringify(Uint8Array.from([1, 2, 3]));
+      bwt.createStringify(Uint8Array.from([1, 2, 3]), { publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES), kid: "a".repeat(24)});
     }, TypeError);
   }
 });
