@@ -20,6 +20,8 @@
 
 `QldUAAAAAWygrOCJAAABbKCs4iz5wub7BvcERzge0rd2++YzNTY2MDYzNzc5OTgx.5eHsXu2v5IUnE+DS1TVaStc=.Scb9ifOg3cEcy582KKfg7Q==`
 
+> :warning: just did a semi-major refactor and haven't updated the docs. in progress...
+
 ## Usage
 
 ``` ts
