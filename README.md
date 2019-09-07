@@ -126,7 +126,7 @@ export interface Parse {
  *
  * secretKey is the 32-byte secret key.
  * publicKey is the 32-byte public key.
- * kid is a 16-byte key identifer for the public key.
+ * kid is a 16-byte key identifier for the public key.
  */
 export interface KeyPair {
   secretKey: Uint8Array;

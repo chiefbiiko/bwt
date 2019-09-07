@@ -84,7 +84,7 @@ export interface Parse {
  *
  * secretKey is the 32-byte secret key.
  * publicKey is the 32-byte public key.
- * kid is a 16-byte key identifer for the public key.
+ * kid is a 16-byte key identifier for the public key.
  */
 export interface KeyPair {
   secretKey: Uint8Array;
@@ -109,17 +109,6 @@ export interface PeerPublicKey {
 interface Sealed {
   ciphertext: Uint8Array;
   tag: Uint8Array;
-}
-
-/** Bike-shed constant-time buffer equality check. */
-function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  let diff: number = a.byteLength === b.byteLength ? 0 : 1;
-
-  for (let i: number = Math.max(a.byteLength, b.byteLength) - 1; i >= 0; --i) {
-    diff |= a[i] ^ b[i];
-  }
-
-  return diff === 0;
 }
 
 /** Reads given bytes as an unsigned big-endian bigint. */
@@ -155,12 +144,9 @@ function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
   return buf;
 }
 
-/** Converts a buffer to metadata of the form: [magic, header, kid, nonce]. */
-function bufferToMetadata(
-  buf: Uint8Array
-): [Uint8Array, Header, string, Uint8Array] {
+/** Converts a buffer to metadata of the form: [header, kid, nonce]. */
+function bufferToMetadata(buf: Uint8Array): [Header, string, Uint8Array] {
   return [
-    buf.subarray(0, 3),
     {
       typ: buf[3],
       iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
@@ -244,7 +230,7 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
     x &&
     x.kid &&
     x.kid.byteLength === KID_BYTES &&
-    x.publicKey.length === PUBLIC_KEY_BYTES
+    x.publicKey.byteLength === PUBLIC_KEY_BYTES
   );
 }
 
@@ -253,7 +239,7 @@ function hasValidTokenSize(x: string): boolean {
   return x && x.length <= MAX_TOKEN_CHARS;
 }
 
-/** Generates a BWT key pair, optionally base64 encoded. */
+/** Generates a BWT key pair. */
 export function generateKeyPair(): KeyPair {
   const seed: Uint8Array = crypto.getRandomValues(
     new Uint8Array(SECRET_KEY_BYTES)
@@ -380,13 +366,12 @@ export function createParse(
    * the public key lookup space for the current parse invocation.
    */
   return function parse(token: string): Contents {
-    if (!hasValidTokenSize(token)) {
+    if (!hasValidTokenSize(token) || !token.startsWith("QldU")) {
       return null;
     }
 
-    let magic: Uint8Array;
-    let kid: string;
     let header: Header;
+    let kid: string;
     let nonce: Uint8Array;
     let body: Body;
 
@@ -395,11 +380,7 @@ export function createParse(
 
       const aad: Uint8Array = encode(parts[0], "base64");
 
-      [magic, header, kid, nonce] = bufferToMetadata(aad);
-
-      if (!constantTimeEqual(magic, MAGIC_BWT) || !isValidHeader(header)) {
-        return null;
-      }
+      [header, kid, nonce] = bufferToMetadata(aad);
 
       const ciphertext: Uint8Array = encode(parts[1], "base64");
 
@@ -420,7 +401,7 @@ export function createParse(
       return null;
     }
 
-    if (!body) {
+    if (!body || !isValidHeader(header)) {
       return null;
     }
 
