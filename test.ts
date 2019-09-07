@@ -109,71 +109,95 @@ test({
 });
 
 test({
-  name: "createStringify throws if ownSecretKey is an invalid buffer",
+  name: "createStringify throws if ownSecretKey is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createStringify(Uint8Array.from([1, 2, 3]), {
-        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-        kid: encode("a".repeat(24), "base64")
-      });
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES - 1), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+          kid: new Uint8Array(bwt.KID_BYTES)
+        });
+      },
+      TypeError,
+      "invalid secret key"
+    );
   }
 });
 
 test({
-  name: "createStringify throws if defaultPeerPublicKey.publicKey is invalid",
+  name: "createStringify throws if peerPublicKey.publicKey is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
-        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
-        kid: new Uint8Array(bwt.KID_BYTES)
-      });
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
+          kid: new Uint8Array(bwt.KID_BYTES)
+        });
+      },
+      TypeError,
+      "invalid peer public key"
+    );
   }
 });
 
 test({
-  name: "createStringify throws if defaultPeerPublicKe.kid is invalid",
+  name: "createStringify throws if peerPublicKey.kid is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
-        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-        kid: new Uint8Array(bwt.KID_BYTES - 1)
-      });
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+          kid: new Uint8Array(bwt.KID_BYTES - 1)
+        });
+      },
+      TypeError,
+      "invalid peer public key"
+    );
   }
 });
 
 test({
-  name: "createParse throws if ownSecretKey is an invalid buffer",
+  name: "createParse throws if ownSecretKey is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createParse(Uint8Array.from([1, 2, 3]));
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createParse(Uint8Array.from([1, 2, 3]));
+      },
+      TypeError,
+      "invalid secret key"
+    );
   }
 });
 
 test({
-  name: "createParse throws if defaultPeerPublicKey.publicKey is invalid",
+  name: "createParse throws if peerPublicKey.publicKey is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
-        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
-        kid: new Uint8Array(bwt.KID_BYTES)
-      });
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
+          kid: new Uint8Array(bwt.KID_BYTES)
+        });
+      },
+      TypeError,
+      "invalid peer public key"
+    );
   }
 });
 
 test({
-  name: "createParse throws if defaultPeerPublicKey.kid is invalid",
+  name: "createParse throws if peerPublicKey.kid is invalid",
   fn(): void {
-    assertThrows((): void => {
-      bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
-        publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-        kid: new Uint8Array(bwt.KID_BYTES - 1)
-      });
-    }, TypeError);
+    assertThrows(
+      (): void => {
+        bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+          kid: new Uint8Array(bwt.KID_BYTES - 1)
+        });
+      },
+      TypeError,
+      "invalid peer public key"
+    );
   }
 });
 

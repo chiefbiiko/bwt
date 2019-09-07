@@ -47,10 +47,9 @@ export const enum Typ {
 /**
  * BWT header object.
  *
- * typ must be a supported BWT version tag, currently that is "BWTv0" only.
+ * typ must be a supported BWT version, currently that is Typ.BWTv0 only.
  * iat and exp denote the issued-at and expiry ms timestamps of a token.
- * kid is the public key identifier of the issuing party. base64 encoded kid
- * strings are supported.
+ * kid is the public key identifier of the issuing party.
  */
 export interface Header {
   typ: Typ;

@@ -20,8 +20,6 @@
 
 `QldUAAAAAWygrOCJAAABbKCs4iz5wub7BvcERzge0rd2++YzNTY2MDYzNzc5OTgx.5eHsXu2v5IUnE+DS1TVaStc=.Scb9ifOg3cEcy582KKfg7Q==`
 
-> :warning: just did a semi-major refactor and haven't updated the docs. in progress...
-
 ## Usage
 
 ``` ts
@@ -68,6 +66,21 @@ In case of exceptions, fx input validation or MAC verification errors, marshalli
 Find basic interfaces and constants below.
 
 ``` ts
+/** Supported BWT versions. */
+export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
+
+/** Maximum allowed number of characters of a token. */
+export const MAX_TOKEN_CHARS: number = 4096;
+
+/** Byte length of a Curve25519 secret key. */
+export const SECRET_KEY_BYTES: number = 32;
+
+/** Byte length of a Curve25519 public key. */
+export const PUBLIC_KEY_BYTES: number = 32;
+
+/** Byte length of a BWT kid. */
+export const KID_BYTES: number = 16;
+
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
   BWTv0
@@ -76,16 +89,15 @@ export const enum Typ {
 /**
  * BWT header object.
  *
- * typ must be a supported BWT version tag, currently that is "BWTv0" only.
+ * typ must be a supported BWT version, currently that is Typ.BWTv0 only.
  * iat and exp denote the issued-at and expiry ms timestamps of a token.
- * kid is the public key identifier of the issuing party. base64 encoded kid
- * strings are supported.
+ * kid is the public key identifier of the issuing party.
  */
 export interface Header {
   typ: Typ;
   iat: number;
   exp: number;
-  kid: string | Uint8Array;
+  kid: Uint8Array;
 }
 
 /** BWT body object. */
@@ -101,12 +113,12 @@ export interface Contents {
 
 /** BWT stringify function. */
 export interface Stringify {
-  (header: Header, body: Body, peerPublicKey?: PeerPublicKey): string;
+  (header: Header, body: Body): string;
 }
 
 /** BWT parse function. */
 export interface Parse {
-  (token: string, ...peerPublicKeys: PeerPublicKey[]): Contents;
+  (token: string): Contents;
 }
 
 /**
@@ -115,94 +127,78 @@ export interface Parse {
  * secretKey is the 32-byte secret key.
  * publicKey is the 32-byte public key.
  * kid is a 16-byte key identifer for the public key.
- *
- * Any of the above properties can either be buffers or base64 strings.
  */
 export interface KeyPair {
-  secretKey: string | Uint8Array;
-  publicKey: string | Uint8Array;
-  kid: string | Uint8Array;
+  secretKey: Uint8Array;
+  publicKey: Uint8Array;
+  kid: Uint8Array;
 }
 
 /**
  * BWT public key of a peer.
  *
  * publicKey is the 32-byte public key.
- * kid is a 16-byte key identifier for the public key.
- * name can be an arbitrarily encoded string or a buffer.
- *
- * publicKey and kid can either be buffers or base64 strings.
+ * kid is a 16-byte key identifer for the public key.
+ * name can be an arbitrarily encoded string.
  */
 export interface PeerPublicKey {
-  publicKey: string | Uint8Array;
-  kid: string | Uint8Array;
-  name?: string | Uint8Array;
+  publicKey: Uint8Array;
+  kid: Uint8Array;
+  name?: string;
 }
-
-/** Supported BWT versions. */
-export const SUPPORTED_VERSIONS: Set<string> = new Set<string>(["BWTv0"]);
-
-/** Maximum allowed number of characters of a token. */
-export const MAX_TOKEN_CHARS: number = 4096;
-
-/** Byte length of a Curve25519 secret key. */
-export const SECRET_KEY_BYTES: number = 32;
-
-/** Byte length of a Curve25519 public key. */
-export const PUBLIC_KEY_BYTES: number = 32;
 ```
 
 ### Core Callables
 
-#### `generateKeyPair(outputEncoding?: string): KeyPair`
+#### `generateKeyPair(): KeyPair`
 
 Generates a new keypair.
 
-`outputEncoding` can be set to `"base64"`. By default, keys are plain `Uint8Array`s.
-
-#### `createStringify(ownSecretKey: string | Uint8Array, defaultPeerPublicKey?: PeerPublicKey): Stringify`
+#### `createStringify(ownSecretKey: Uint8Array, peerPublicKey: PeerPublicKey): Stringify`
 
 Creates a stringify function.
 
-`ownSecretKey` is the secret key of the keypair of the issuing party. Can be passed as a base64 string. `defaultPeerPublicKey` can be the peer public key object of a party that the to-be-generated tokens are meant for. If provided, it will be used as a default, i.e. when `Stringify` invocations do not receive a peer public key.
+`ownSecretKey` is the secret key of the keypair of the issuing party.
 
-#### `createParse(ownSecretKey: string | Uint8Array, ...defaultPeerPublicKeys: PeerPublicKey[]): Parse`
+`peerPublicKey` must be the peer public key object of the party that the to-be-generated tokens are meant for.
+
+`createStringify` mutates, zeroes the secret key buffer after computing the shared secret with the indicated peer in order to protect against attacks targeting strayman memory. Just be aware that `createStringify` clears `ownSecretKey`.
+
+#### `createParse(ownSecretKey: Uint8Array, ...peerPublicKeys: PeerPublicKey[]): Parse`
 
 Creates a parse function.
 
-`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. Can be passed as a base64 string. `defaultPeerPublicKeys` can be an array of peer public key objects to be used for verification of incoming tokens. If any are specified these will be used as a default, i.e. when `Parse` invocations do not receive any peer public keys to verify against.
+`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. `peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
 
-#### `stringify(header: Header, body: Body, peerPublicKey?: PeerPublicKey): string`
+`createParse` mutates, zeroes the secret key buffer after computing the shared secret with the indicated peer in order to protect against attacks targeting strayman memory. Just be aware that `createParse` clears `ownSecretKey`.
+
+#### `stringify(header: Header, body: Body): string`
 
 Stringifies a token.
 
 `header` must contain four props: 
 
-+ `typ` set to one of the `bwt.Typ` enum variants or their string representations, e.g. "BWTv0"
++ `typ` set to one of the `Typ` enum variants, currently that is `Typ.BWTv0` only
 
 + `iat` a millisecond timestamp indicating the current time 
 
-+ `exp` a millisecond timestamp indicating the expiry of the token 
++ `exp` a millisecond timestamp indicating the expiry of the token
 
-+ `kid` a base64 string or a binary of 16 bytes, the public key identifier of the issuing party
++ `kid` a binary of 16 bytes, the public key identifier of the issuing party
 
-The above implies that every `BWT` token must expire.
+The above implies that every `BWT` token must expire. `exp` must be greater than `iat`.
 
-`body` must be an object. Apart from that it can contain any type of fields.  
-
-`peerPublicKey` can be specified to override a default peer public key and address a token to a specific party.
+`body` must be an object. Apart from that it can contain any type of fields. Nonetheless, make sure not to bloat the body as `stringify` will return `null` if a generated token exceeds 4KiB.
 
 In case of invalid inputs or any other exceptions `stringify` returns `null`, otherwise a `BWT` token.
 
-#### `parse(token: string, ...peerPublicKeys: PeerPublicKey[]): Contents`
+#### `parse(token: string): Contents`
 
 Parses a token.
 
-If `peerPublicKeys` consists of at least one peer public key, it takes precedence and any default peer public keys possibly passed when creating the parse function are ignored for verification of the `token`.
-
 In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
 
-Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` claims are unsigned integers, and `iat <= Date.now() < exp`. 
+Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` header claims are unsigned integers, `iat <= Date.now() < exp`, and that the total token size does not exceed 4KiB. 
 
 ## Dear Reviewers
 
