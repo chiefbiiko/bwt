@@ -186,7 +186,7 @@ Stringifies a token.
 
 + `kid` a binary of 16 bytes, the public key identifier of the issuing party
 
-The above implies that every `BWT` token must expire. `exp` must be greater than `iat`.
+`exp` must be greater than `iat`.
 
 `body` must be an object. Apart from that it can contain any type of fields. Nonetheless, make sure not to bloat the body as `stringify` will return `null` if a generated token exceeds 4KiB.
 

@@ -327,7 +327,7 @@ export function createStringify(
  * Creates a BWT parse function.
  *
  * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
- * defaultPeerPublicKeys can be a peer public key collection that shall be used
+ * peerPublicKeys can be a peer public key collection that shall be used
  * to lookup public keys by key identifiers for all subsequent invocations of
  * the returned parse function.
  */
