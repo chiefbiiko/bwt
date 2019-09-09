@@ -4,7 +4,9 @@
 
 **B**etter **W**eb **T**oken
 
-> Know someone that can *security review* this module?
+> Know anyone that can *security review* this module?
+
+:warning: :construction: **API won't change, but internals will. Not yet formally reviewed.**
 
 ## Features
 
