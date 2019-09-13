@@ -4,19 +4,17 @@
 
 **B**etter **W**eb **T**oken
 
-> Know anyone that can *security review* this module?
+*Powered by Curve25519, ChaCha20 derivatives, and Poly1305*
 
-:warning: :construction: **API won't change, but internals will. Not yet formally reviewed.**
+:warning: :construction: **Not yet formally reviewed.**
 
 ## Features
 
-- `BWT`s are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption)
-  - [high-security](https://www.cryptrec.go.jp/exreport/cryptrec-ex-2601-2016.pdf) `AEAD_CHACHA20_POLY1305` scheme
-  - [RFC 8439](https://tools.ietf.org/html/rfc8439) compliant
+- `BWT`s are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption) using [`XChaCha20-Poly1305`](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01)
 
-- no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
-  
-- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid` - no opting-out
+- stoopid simple - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
+
+- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid` *- no opting-out*
 
 ## What a BWT Looks Like
 
@@ -178,11 +176,11 @@ Creates a parse function.
 
 Stringifies a token.
 
-`header` must contain four props: 
+`header` must contain four props:
 
 + `typ` set to one of the `Typ` enum variants, currently that is `Typ.BWTv0` only
 
-+ `iat` a millisecond timestamp indicating the current time 
++ `iat` a millisecond timestamp indicating the current time
 
 + `exp` a millisecond timestamp indicating the expiry of the token
 
@@ -200,7 +198,7 @@ Parses a token.
 
 In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
 
-Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` header claims are unsigned integers, `iat <= Date.now() < exp`, and that the total token size does not exceed 4KiB. 
+Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` header claims are unsigned integers, `iat <= Date.now() < exp`, and that the total token size does not exceed 4KiB.
 
 ## Dear Reviewers
 
@@ -210,15 +208,15 @@ Besides format and cryptographic validation `parse` verifies that the `iat` and 
 
     `curl -fsSL https://deno.land/x/install/install.sh | sh`
 
-2. Get this repo: 
+2. Get this repo:
 
     `git clone https://github.com/chiefbiiko/bwt && cd ./bwt && mkdir ./cache`
 
-3. Cache all dependencies and run tests: 
+3. Cache all dependencies and run tests:
 
     `DENO_DIR=./cache $HOME/.deno/bin/deno run ./test.ts`
 
-All relevant dependencies, [`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64), are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.
+~~All relevant dependencies, [`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64), are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.~~
 
 Please open an issue for your review findings. Looking forward to your feedback!
 

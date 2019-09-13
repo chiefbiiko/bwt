@@ -180,7 +180,7 @@ test({
         });
       },
       TypeError,
-      "invalid peer public key"
+      "invalid peer public keys"
     );
   }
 });
@@ -196,7 +196,20 @@ test({
         });
       },
       TypeError,
-      "invalid peer public key"
+      "invalid peer public keys"
+    );
+  }
+});
+
+test({
+  name: "createParse throws if no peer public keys are provided",
+  fn(): void {
+    assertThrows(
+      (): void => {
+        bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES));
+      },
+      TypeError,
+      "no peer public keys provided"
     );
   }
 });
@@ -342,7 +355,7 @@ test({
 });
 
 test({
-  name: "BWT ops null if exp is due",
+  name: "stringify and parse null if exp is due",
   fn(): void {
     const inputHeader: bwt.Header = createHeader({
       exp: Date.now() - 1,

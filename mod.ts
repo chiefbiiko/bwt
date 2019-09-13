@@ -2,8 +2,13 @@ import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
   seal,
   open,
-  NONCE_BYTES
-} from "https://denopkg.com/chiefbiiko/aead-chacha20-poly1305/mod.ts";
+  NONCE_BYTES as XCHACHA20_POLY1305_NONCE_BYTES
+} from "https://denopkg.com/chiefbiiko/xchacha20-poly1305/mod.ts";
+import {
+  hchacha20,
+  OUTPUT_BYTES as HCHACHA20_OUTPUT_BYTES,
+  NONCE_BYTES as HCHACHA20_NONCE_BYTES
+} from "https://denopkg.com/chiefbiiko/hchacha20/mod.ts";
 import {
   encode,
   decode
@@ -25,7 +30,7 @@ export const PUBLIC_KEY_BYTES: number = 32;
 export const KID_BYTES: number = 16;
 
 /** Byte length of a serialized header. */
-const HEADER_BYTES: number = 48;
+const HEADER_BYTES: number = 60;
 
 /** Global Curve25519 instance provding a scalar multiplication op. */
 const CURVE25519: Curve25519 = new Curve25519();
@@ -37,7 +42,13 @@ const BIGINT_BYTE_MASK: bigint = 255n;
 const BIGINT_BYTE_SHIFT: bigint = 8n;
 
 /** "BWT" as buffer. */
-const MAGIC_BWT: Uint8Array = Uint8Array.from([66, 87, 84]);
+const BWT_MAGIC: Uint8Array = Uint8Array.from([66, 87, 84]);
+
+/** HChacha20 all-zero nonce. */
+const HCHACHA20_ZERO_NONCE: Uint8Array = new Uint8Array(HCHACHA20_NONCE_BYTES);
+
+/** BWT context constant. */
+const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
@@ -111,6 +122,17 @@ interface Sealed {
   tag: Uint8Array;
 }
 
+/** Bike-shed constant-time buffer equality check. */
+export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  let diff: number = a.byteLength === b.byteLength ? 0 : 1;
+
+  for (let i: number = Math.max(a.byteLength, b.byteLength) - 1; i >= 0; --i) {
+    diff |= a[i] ^ b[i];
+  }
+
+  return diff === 0;
+}
+
 /** Reads given bytes as an unsigned big-endian bigint. */
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
@@ -132,7 +154,7 @@ function bigintToBytesBE(b: bigint, out: Uint8Array): void {
 function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
-  buf.set(MAGIC_BWT, 0);
+  buf.set(BWT_MAGIC, 0);
   buf[3] = header.typ;
 
   bigintToBytesBE(BigInt(header.iat), buf.subarray(4, 12));
@@ -158,13 +180,23 @@ function bufferToMetadata(buf: Uint8Array): [Header, string, Uint8Array] {
   ];
 }
 
-/** Creates a nonce generator that is based on the current timestamp. */
-function* createNonceGenerator(): Generator {
-  let base: bigint = BigInt(String(Date.now()).slice(-NONCE_BYTES));
+/** Shared key derivation. */
+function deriveSharedKey(
+  secretKey: Uint8Array,
+  publicKey: Uint8Array
+): Uint8Array {
+  const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
-  for (;;) {
-    yield encode(String(++base), "utf8");
-  }
+  // TODO: check for low-order public key necessary?
+  // if all-zero check is done after scalarmult cache timing attacks are still feasible
+
+  const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
+
+  hchacha20(sharedKey, sharedSecret, HCHACHA20_ZERO_NONCE, BWT_CONTEXT);
+
+  sharedSecret.fill(0x00, 0, sharedSecret.byteLength);
+
+  return sharedKey;
 }
 
 /** Transforms a collection of peer public keys to a shared key map. */
@@ -176,7 +208,7 @@ function toSharedKeyMap(
     peerPublicKeys.map(
       (peerPublicKey: PeerPublicKey): [string, Uint8Array] => [
         decode(peerPublicKey.kid, "base64"),
-        CURVE25519.scalarMult(ownSecretKey, peerPublicKey.publicKey)
+        deriveSharedKey(ownSecretKey, peerPublicKey.publicKey)
       ]
     )
   );
@@ -276,9 +308,7 @@ export function createStringify(
     throw new TypeError("invalid peer public key");
   }
 
-  const nonceGenerator: Generator = createNonceGenerator();
-
-  const sharedKey: Uint8Array = CURVE25519.scalarMult(
+  const sharedKey: Uint8Array = deriveSharedKey(
     ownSecretKey,
     peerPublicKey.publicKey
   );
@@ -302,7 +332,9 @@ export function createStringify(
     let token: string;
 
     try {
-      const nonce: Uint8Array = nonceGenerator.next().value;
+      const nonce: Uint8Array = crypto.getRandomValues(
+        new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES)
+      );
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
 
