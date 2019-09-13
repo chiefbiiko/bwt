@@ -6,7 +6,7 @@
 
 *Powered by Curve25519, ChaCha20 derivatives, and Poly1305*
 
-:warning: :construction: **Not yet formally reviewed.**
+:warning: **Not yet formally reviewed** :construction:
 
 ## Features
 
@@ -14,7 +14,7 @@
 
 - stoopid simple - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
 
-- `BWT`s require a fixed set of four header claims: `typ`, `iat`, `exp`, `kid` *- no opting-out*
+- secure by design, secure by default
 
 ## What a BWT Looks Like
 
@@ -46,7 +46,7 @@ const token = alice.stringify(
   { info: "jwt sucks" }
 );
 
-console.log("alice seals and sends this token to bob:", token);
+console.log("alice seals and gets this token to bob:", token);
 
 const contents = bob.parse(token);
 
@@ -218,25 +218,13 @@ Besides format and cryptographic validation `parse` verifies that the `iat` and 
 
   Find all non-dev dependencies in the following two directories:
 
-  * `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/`:
+  **`./cache/deps/https/raw.githubusercontent.com/chiefbiiko/`**:
+  
+  [`curve25519`](https://github.com/chiefbiiko/curve25519), [`chacha20`](https://github.com/chiefbiiko/chacha20), [`hchacha20`](https://github.com/chiefbiiko/hchacha20), [`poly1305`](https://github.com/chiefbiiko/poly1305), [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305), [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305), [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
 
-    * [`curve25519`](https://github.com/chiefbiiko/curve25519)
-
-    * [`hchacha20`](https://github.com/chiefbiiko/hchacha20)
-
-    * [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305)
-
-    * [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305)
-
-    * [`chacha20`](https://github.com/chiefbiiko/chacha20)
-
-    * [`poly1305`](https://github.com/chiefbiiko/poly1305)
-
-    * [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
-
-  * `./cache/deps/https/deno.land/x/`:
-
-    * [`base64`](https://github.com/chiefbiiko/base64)
+  **`./cache/deps/https/deno.land/x/`**:
+  
+  [`base64`](https://github.com/chiefbiiko/base64)
 
 Please open an issue for your review findings. Looking forward to your feedback!
 
