@@ -243,22 +243,9 @@ test({
 });
 
 test({
-  name: "parse nulls if kid is unknown",
+  name: "stringify nulls if kid is null",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      kid: encode("deadbeefdeadbeef", "utf8")
-    });
-
-    const token: string = a.stringify(inputHeader, createBody());
-
-    assertEquals(b.parse(token), null);
-  }
-});
-
-test({
-  name: "stringify nulls if kid is falsy",
-  fn(): void {
-    const inputHeader: bwt.Header = createHeader({ kid: "" });
+    const inputHeader: bwt.Header = createHeader({ kid: null });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -363,6 +350,19 @@ test({
     });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
+  }
+});
+
+test({
+  name: "parse nulls if kid is unknown",
+  fn(): void {
+    const inputHeader: bwt.Header = createHeader({
+      kid: encode("deadbeefdeadbeef", "utf8")
+    });
+
+    const token: string = a.stringify(inputHeader, createBody());
+
+    assertEquals(b.parse(token), null);
   }
 });
 
