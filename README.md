@@ -105,7 +105,7 @@ export interface Body {
   [key: string]: unknown;
 }
 
-/** Parsed contents of a token. */
+/** BWT contents. */
 export interface Contents {
   header: Header;
   body: Body;
@@ -214,9 +214,29 @@ Besides format and cryptographic validation `parse` verifies that the `iat` and 
 
 3. Cache all dependencies and run tests:
 
-    `DENO_DIR=./cache $HOME/.deno/bin/deno run ./test.ts`
+    `DENO_DIR=./cache $HOME/.deno/bin/deno run --reload ./test.ts`
 
-~~All relevant dependencies, [`aead-chacha20-poly1305`](https://github.com/chiefbiiko/aead-chacha20-poly1305), [`curve25519`](https://github.com/chiefbiiko/curve25519), [`std-encoding`](https://github.com/chiefbiiko/std-encoding), and [`base64`](https://github.com/chiefbiiko/base64), are then stored in `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/` and `./cache/deps/https/deno.land/x/`.~~
+  Find all non-dev dependencies in the following two directories:
+
+  * `./cache/deps/https/raw.githubusercontent.com/chiefbiiko/`:
+
+    * [`curve25519`](https://github.com/chiefbiiko/curve25519)
+
+    * [`hchacha20`](https://github.com/chiefbiiko/hchacha20)
+
+    * [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305)
+
+    * [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305)
+
+    * [`chacha20`](https://github.com/chiefbiiko/chacha20)
+
+    * [`poly1305`](https://github.com/chiefbiiko/poly1305)
+
+    * [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
+
+  * `./cache/deps/https/deno.land/x/`:
+
+    * [`base64`](https://github.com/chiefbiiko/base64)
 
 Please open an issue for your review findings. Looking forward to your feedback!
 
