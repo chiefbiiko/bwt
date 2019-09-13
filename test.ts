@@ -10,6 +10,10 @@ import {
 
 import * as bwt from "./mod.ts";
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function createHeader(source: { [key: string]: any } = {}): bwt.Header {
   return {
     typ: bwt.Typ.BWTv0,
@@ -355,7 +359,7 @@ test({
 });
 
 test({
-  name: "stringify and parse null if exp is due",
+  name: "stringify nulls if exp is due",
   fn(): void {
     const inputHeader: bwt.Header = createHeader({
       exp: Date.now() - 1,
@@ -363,6 +367,22 @@ test({
     });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
+  }
+});
+
+test({
+  name: "parse nulls if exp is due",
+  async fn(): Promise<void> {
+
+    const token: string = a.stringify(createHeader({ kid: a.kid, exp: Date.now() + 419 }), createBody());
+    
+    assertEquals(typeof token, "string");
+    
+    await sleep(1000);
+    
+    const contents: bwt.Contents = b.parse(token);
+    
+    assertEquals(contents, null);
   }
 });
 
