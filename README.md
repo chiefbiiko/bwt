@@ -4,7 +4,7 @@
 
 **B**etter **W**eb **T**oken
 
-*Powered by Curve25519, ChaCha20 derivatives, and Poly1305*
+_Powered by Curve25519, ChaCha20 derivatives, and Poly1305_
 
 :warning: **Not yet formally reviewed** :construction:
 
@@ -22,7 +22,7 @@
 
 ## Usage
 
-``` ts
+```ts
 import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
 const alice = { ...bwt.generateKeyPair(), stringify: null };
@@ -65,7 +65,7 @@ In case of exceptions, fx input validation or MAC verification errors, marshalli
 
 Find basic interfaces and constants below.
 
-``` ts
+```ts
 /** Supported BWT versions. */
 export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
 
@@ -158,11 +158,11 @@ Generates a new keypair.
 
 Creates a stringify function.
 
-`ownSecretKey` is the secret key of the keypair of the issuing party.
+`ownSecretKey` is the secret key of the issuing peer's key pair.
 
 `peerPublicKey` must be the peer public key object of the party that the to-be-generated tokens are meant for.
 
-`createStringify` mutates, zeroes the secret key buffer after computing the shared secret with the indicated peer in order to protect against attacks targeting strayman memory. Just be aware that `createStringify` clears `ownSecretKey`.
+`createStringify` zeros the secret key buffer after computing the shared secret with the indicated peer. Just be aware that `createStringify` clears `ownSecretKey`.
 
 #### `createParse(ownSecretKey: Uint8Array, ...peerPublicKeys: PeerPublicKey[]): Parse`
 
@@ -170,7 +170,7 @@ Creates a parse function.
 
 `ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. `peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
 
-`createParse` mutates, zeroes the secret key buffer after computing the shared secret with the indicated peer in order to protect against attacks targeting strayman memory. Just be aware that `createParse` clears `ownSecretKey`.
+`createParse` zeros the secret key buffer after deriving the shared key for the indicated peers. Just be aware that `createParse` clears `ownSecretKey`.
 
 #### `stringify(header: Header, body: Body): string`
 
@@ -178,15 +178,13 @@ Stringifies a token.
 
 `header` must contain four props:
 
-+ `typ` set to one of the `Typ` enum variants, currently that is `Typ.BWTv0` only
+- `typ` set to one of the `Typ` enum variants, currently that is `Typ.BWTv0` only
 
-+ `iat` a millisecond timestamp indicating the current time
+- `iat` a millisecond timestamp indicating the current time
 
-+ `exp` a millisecond timestamp indicating the expiry of the token
+- `exp` a millisecond timestamp indicating the expiry of the token, must be greater than `iat`
 
-+ `kid` a binary of 16 bytes, the public key identifier of the issuing party
-
-`exp` must be greater than `iat`.
+- `kid` a binary of 16 bytes, the public key identifier of the issuing peer
 
 `body` must be an object. Apart from that it can contain any type of fields. Nonetheless, make sure not to bloat the body as `stringify` will return `null` if a generated token exceeds 4KiB.
 
@@ -196,9 +194,13 @@ In case of invalid inputs or any other exceptions `stringify` returns `null`, ot
 
 Parses a token.
 
-In case of invalid inputs, exceptions, corrupt or forged tokens `parse` returns `null`, otherwise a `BWT` header and body.
+Returns null if the token is malformatted, corrupt, expired, from an unknown issuer, or if any other exceptions occur while marshalling, such as `JSON.parse(body)` -> 💥
 
-Besides format and cryptographic validation `parse` verifies that the `iat` and `exp` header claims are unsigned integers, `iat <= Date.now() < exp`, and that the total token size does not exceed 4KiB.
+In case of a valid token `parse` returns an object containing the token `header` and `body`.
+
+This function encapsulates all validation and cryptographic verification of a token. Note that, as BWT requires every token to expire, `parse` does this basic metadata check.
+
+Additional application-specific metadata checks can be made as `parse`, besides the main body, returns the token header that contains metadata. Fx, an app could choose to reject all tokens of a certain age by additionally checking the mandatory `iat` claim of a token header.
 
 ## Dear Reviewers
 
@@ -206,24 +208,24 @@ Besides format and cryptographic validation `parse` verifies that the `iat` and 
 
 1. Install `deno`:
 
-    `curl -fsSL https://deno.land/x/install/install.sh | sh`
+   `curl -fsSL https://deno.land/x/install/install.sh | sh`
 
 2. Get this repo:
 
-    `git clone https://github.com/chiefbiiko/bwt && cd ./bwt && mkdir ./cache`
+   `git clone https://github.com/chiefbiiko/bwt && cd ./bwt && mkdir ./cache`
 
 3. Cache all dependencies and run tests:
 
-    `DENO_DIR=./cache $HOME/.deno/bin/deno run --reload ./test.ts`
+   `DENO_DIR=./cache $HOME/.deno/bin/deno run --reload ./test.ts`
 
-  Find all non-dev dependencies in the following two directories:
+4. Find all non-dev dependencies in the following two directories:
 
-  **`./cache/deps/https/raw.githubusercontent.com/chiefbiiko/`**:
-  
-  [`curve25519`](https://github.com/chiefbiiko/curve25519), [`chacha20`](https://github.com/chiefbiiko/chacha20), [`hchacha20`](https://github.com/chiefbiiko/hchacha20), [`poly1305`](https://github.com/chiefbiiko/poly1305), [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305), [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305), [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
+   **`./cache/deps/https/raw.githubusercontent.com/chiefbiiko/`**
 
-  **`./cache/deps/https/deno.land/x/`**:
-  
+   [`curve25519`](https://github.com/chiefbiiko/curve25519), [`chacha20`](https://github.com/chiefbiiko/chacha20), [`hchacha20`](https://github.com/chiefbiiko/hchacha20), [`poly1305`](https://github.com/chiefbiiko/poly1305), [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305), [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305), [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
+
+  **`./cache/deps/https/deno.land/x/`**
+
   [`base64`](https://github.com/chiefbiiko/base64)
 
 Please open an issue for your review findings. Looking forward to your feedback!
