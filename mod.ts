@@ -50,6 +50,9 @@ const HCHACHA20_ZERO_NONCE: Uint8Array = new Uint8Array(HCHACHA20_NONCE_BYTES);
 /** BWT context constant. */
 const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
+/** BWT format regex. */
+const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9+/=]{76}\.[A-Za-z0-9+/=]{2,}\.[A-Za-z0-9+/=]{24}$/;
+
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
   BWTv0
@@ -116,8 +119,9 @@ export interface PeerPublicKey {
   name?: string;
 }
 
-/** Return values of the AEAD seal op. */
+/** Return values of the xchacha20-poly1305 seal op. */
 interface Sealed {
+  aad: Uint8Array;
   ciphertext: Uint8Array;
   tag: Uint8Array;
 }
@@ -150,7 +154,7 @@ function bigintToBytesBE(b: bigint, out: Uint8Array): void {
   }
 }
 
-/** Converts a header and nonce to a buffer. */
+/** Converts a header and nonce to a 60-byte buffer. */
 function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
@@ -185,10 +189,8 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
-
   // TODO: check for low-order public key necessary?
-  // if all-zero check is done after scalarmult cache timing attacks are still feasible
+  const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
   const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
 
@@ -251,12 +253,7 @@ function isValidSecretKey(x: Uint8Array): boolean {
   return x && x.byteLength === SECRET_KEY_BYTES;
 }
 
-/**
- *  Whether given input is a valid BWT peer public key.
- *
- * This function must be passed normalized peer public keys as it assumes a
- * buffer publicKey prop for the byte length check.
- */
+/** Whether given input is a valid BWT peer public key. */
 function isValidPeerPublicKey(x: PeerPublicKey): boolean {
   return (
     x &&
@@ -268,14 +265,21 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
 
 /** Whether given input string has a valid token size. */
 function hasValidTokenSize(x: string): boolean {
-  return x && x.length <= MAX_TOKEN_CHARS;
+  return x.length <= MAX_TOKEN_CHARS;
+}
+
+/** Naive BWT format validation. */
+function hasValidTokenFormat(x: string): boolean {
+  return BWT_PATTERN.test(x);
 }
 
 /** Generates a BWT key pair. */
 export function generateKeyPair(): KeyPair {
-  const seed: Uint8Array = crypto.getRandomValues(
-    new Uint8Array(SECRET_KEY_BYTES)
-  );
+  const seed: Uint8Array = new Uint8Array(SECRET_KEY_BYTES);
+  const kid: Uint8Array = new Uint8Array(KID_BYTES);
+
+  crypto.getRandomValues(seed);
+  crypto.getRandomValues(kid);
 
   const keypair: {
     secretKey: Uint8Array;
@@ -284,17 +288,16 @@ export function generateKeyPair(): KeyPair {
 
   seed.fill(0x00, 0, seed.byteLength);
 
-  const kid: Uint8Array = crypto.getRandomValues(new Uint8Array(KID_BYTES));
-
   return { ...keypair, kid };
 }
 
 /**
  * Creates a BWT stringify function.
  *
- * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
- * defaultPeerPublicKey can be a peer public key that shall be used as the
- * default for all subsequent invocations of the returned stringify function.
+ * ownSecretKey must be a buffer of 32 bytes.
+ * peerPublicKey must be a peer public key object.
+ *
+ * Throws TypeErrors if any of its arguments are invalid.
  */
 export function createStringify(
   ownSecretKey: Uint8Array,
@@ -319,10 +322,10 @@ export function createStringify(
    * Stringifies header and body to an authenticated and encrypted token.
    *
    * header must be a BWT header object.
-   * body must be a serializable object with string keys
-   * peerPublicKey must be provided if a defaultPeerPublicKey has not been
-   * passed to bwt.createStringify. It can also be used to override a default
-   * peer public key for an invocation of the stringify function.
+   * body must be a serializable object with string keys.
+   *
+   * Returns null in case of invalid inputs, if the body is too big
+   * (token.length > 4096), or other exceptions, fx JSON.stringify(body) -> 💥
    */
   return function stringify(header: Header, body: Body): string {
     if (!isValidHeader(header) || !body) {
@@ -330,11 +333,10 @@ export function createStringify(
     }
 
     let token: string;
+    let nonce: Uint8Array = new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES);
 
     try {
-      const nonce: Uint8Array = crypto.getRandomValues(
-        new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES)
-      );
+      crypto.getRandomValues(nonce);
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
 
@@ -342,7 +344,7 @@ export function createStringify(
 
       const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad);
 
-      token = assembleToken(aad, sealed.ciphertext, sealed.tag);
+      token = assembleToken(sealed.aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
       return null;
     }
@@ -358,10 +360,11 @@ export function createStringify(
 /**
  * Creates a BWT parse function.
  *
- * ownSecretKey must be a base64 encoded string or buffer of 32 bytes.
- * peerPublicKeys can be a peer public key collection that shall be used
- * to lookup public keys by key identifiers for all subsequent invocations of
- * the returned parse function.
+ * ownSecretKey must be a buffer of 32 bytes.
+ * peerPublicKeys must be a non-empty peer public key collection to be used for
+ * verification of incoming tokens.
+ *
+ * Throws TypeErrors if any of its arguments are invalid.
  */
 export function createParse(
   ownSecretKey: Uint8Array,
@@ -389,16 +392,26 @@ export function createParse(
   /**
    * Parses the contents of a BWT token.
    *
-   * In case any part of the token is corrupt, it cannot be authenticated or
-   * encrypted, or any other unexpected state is encountered null is returned.
-   *
    * token must be a BWT token.
-   * peerPublicKeys must be provided if no default peer public keys have been
-   * passed to bwt.createParse. This collection can also be used to override
-   * the public key lookup space for the current parse invocation.
+   *
+   * Returns null if the token is malformatted, corrupt, expired, from an
+   * unknown issuer, or if any other exceptions occur while marshalling, such as
+   * JSON.parse(body) -> 💥
+   *
+   * In case of a valid token parse returns an object containing the token
+   * header and body.
+   *
+   * This function encapsulates all validation and cryptographic verification of
+   * a token. Note that, as BWT requires every token to expire, parse does this
+   * basic metadata check.
+   *
+   * Additional application-specific metadata checks can be made as parse,
+   * besides the main body, returns the token header that contains metadata. Fx,
+   * an app could choose to reject all tokens of a certain age by additionally
+   * checking the mandatory iat claim of a token header.
    */
   return function parse(token: string): Contents {
-    if (!hasValidTokenSize(token) || !token.startsWith("QldU")) {
+    if (!hasValidTokenFormat(token)) {
       return null;
     }
 
