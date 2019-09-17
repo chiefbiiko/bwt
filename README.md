@@ -206,7 +206,7 @@ Additional application-specific metadata checks can be made as `parse`, besides 
 
 `BWT` builds upon asymmetric cryptography and requires that any involved peers own a static key pair and possess their peer's public keys and key identifiers for token generation and verification.
 
-You can generate a key pair and the corresponding peer public key from the terminal by simply running `deno run https://deno.land/x/bwt/keygen.ts`.
+You can generate a key pair and the corresponding peer public key from the terminal by simply running `deno run https://deno.land/x/bwt/keygen.ts [name of key pair owner]`.
 
 Make sure to store the key pair somewhere safe (some kind of secret store) so that the included secret key remains private.
 

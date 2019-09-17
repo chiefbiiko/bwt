@@ -3,10 +3,7 @@ import {
   assertEquals,
   assertThrows
 } from "https://deno.land/std/testing/asserts.ts";
-import {
-  encode,
-  decode
-} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
+import { encode, decode } from "https://denopkg.com/chief/std-encoding/mod.ts";
 
 import * as bwt from "./mod.ts";
 
@@ -24,7 +21,7 @@ function createBody(...sources: bwt.Body[]): bwt.Body {
   return { fraud: "fraud", ...sources };
 }
 
-interface Party {
+interface Peer {
   name: string;
   kid: Uint8Array;
   secretKey: Uint8Array;
@@ -33,10 +30,9 @@ interface Party {
   parse?: bwt.Parse;
 }
 
-const a: Party = { ...bwt.generateKeyPair(), stringify: null, name: "alice" };
-const b: Party = { ...bwt.generateKeyPair(), parse: null, name: "bob" };
-const c: Party = { ...bwt.generateKeyPair(), stringify: null, name: "chief" };
-// const d: Party = { ...bwt.generateKeyPair(), parse: null, name: "djb" };
+const a: Peer = { ...bwt.generateKeyPair(), stringify: null, name: "alice" };
+const b: Peer = { ...bwt.generateKeyPair(), parse: null, name: "bob" };
+const c: Peer = { ...bwt.generateKeyPair(), stringify: null, name: "chief" };
 
 a.stringify = bwt.createStringify(a.secretKey, {
   name: "bob",
@@ -84,26 +80,21 @@ test({
   fn(): void {
     const aliceInputHeader: bwt.Header = createHeader({ kid: a.kid });
 
-    const chiefbiikoInputHeader: bwt.Header = createHeader({
-      kid: c.kid
-    });
+    const chiefInputHeader: bwt.Header = createHeader({ kid: c.kid });
 
     const inputBody: bwt.Body = createBody();
 
     const aliceToken: string = a.stringify(aliceInputHeader, inputBody);
 
-    const chiefbiikoToken: string = c.stringify(
-      chiefbiikoInputHeader,
-      inputBody
-    );
+    const chiefToken: string = c.stringify(chiefInputHeader, inputBody);
 
     const fromAlice: bwt.Contents = b.parse(aliceToken);
 
-    const fromChiefbiiko: bwt.Contents = b.parse(chiefbiikoToken);
+    const fromChiefbiiko: bwt.Contents = b.parse(chiefToken);
 
     assertEquals(fromAlice.header, aliceInputHeader);
     assertEquals(fromAlice.body, inputBody);
-    assertEquals(fromChiefbiiko.header, chiefbiikoInputHeader);
+    assertEquals(fromChiefbiiko.header, chiefInputHeader);
     assertEquals(fromChiefbiiko.body, inputBody);
   }
 });
