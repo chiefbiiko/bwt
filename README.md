@@ -18,7 +18,7 @@ _Powered by Curve25519, ChaCha20 derivatives, and Poly1305_
 
 ## What a BWT Looks Like
 
-`QldUAAAAAWygrOCJAAABbKCs4iz5wub7BvcERzge0rd2++YzNTY2MDYzNzc5OTgx.5eHsXu2v5IUnE+DS1TVaStc=.Scb9ifOg3cEcy582KKfg7Q==`
+`QldUAAAAAW0/eH7KAAABbT94gG0df5A/AEnJLyZ97kdaR7lt4TRNQ46VzlwFibS1AeZ1V/oNGmkMRiA8.ntfwswksWaG5T0SkrbJ/jiM=.3wzKeXzaleLni1dgmL8ahA==`
 
 ## Usage
 
@@ -198,9 +198,21 @@ Returns null if the token is malformatted, corrupt, expired, from an unknown iss
 
 In case of a valid token `parse` returns an object containing the token `header` and `body`.
 
-This function encapsulates all validation and cryptographic verification of a token. Note that, as BWT requires every token to expire, `parse` does this basic metadata check.
+This function encapsulates all validation and cryptographic verification of a token. Note that, as `BWT` requires every token to expire, `parse` does this basic metadata check.
 
 Additional application-specific metadata checks can be made as `parse`, besides the main body, returns the token header that contains metadata. Fx, an app could choose to reject all tokens of a certain age by additionally checking the mandatory `iat` claim of a token header.
+
+## Managing Keys
+
+`BWT` builds upon asymmetric cryptography and requires that any involved peers (usually REST endpoints) own a static key pair and possess their peer's public keys and key identifiers for token generation and verification.
+
+You can generate a key pair and the corresponding peer public key from the terminal by simply running `deno run https://deno.land/x/bwt/keygen.ts`.
+
+Make sure to store the key pair somewhere safe (fx AWS Secrets Manager) so that the included secret key remains private.
+
+Also, hand the generated peer public key object to all peers of the party owning the generated keys.
+
+Do renew all key pairs involved in your application setting regularly!
 
 ## Dear Reviewers
 
