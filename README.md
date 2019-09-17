@@ -57,11 +57,9 @@ console.log("bob opens it...:", JSON.stringify(contents));
 
 ### Basics
 
-Besides a few constants and interfaces, the module's main exports are two factory functions, `createStringify` and `createParse`, that each create corresponding marshalling functions, `stringify` and `parse`.
+Besides a few constants and interfaces, the module's main exports are two factory functions, `createStringify -> stringify` and `createParse -> parse`.
 
-As `BWT` uses assymetric keys the module also exports a key generation function: `generateKeyPair`. Make sure to store your private keys somewhere safe.
-
-In case of exceptions, fx input validation or MAC verification errors, marshalling ops return `null` rather than `throw`ing errors (to avoid leaking sensitive information). `generateKeyPair`, `createStringify`, and `createParse` will throw on invalid inputs though.
+As `BWT` uses asymmetric keys the module also exports a key generation function: `generateKeyPair`. More on [key management](#managing-keys).
 
 Find basic interfaces and constants below.
 
@@ -204,13 +202,13 @@ Additional application-specific metadata checks can be made as `parse`, besides 
 
 ## Managing Keys
 
-`BWT` builds upon asymmetric cryptography and requires that any involved peers (usually REST endpoints) own a static key pair and possess their peer's public keys and key identifiers for token generation and verification.
+`BWT` builds upon asymmetric cryptography and requires that any involved peers own a static key pair and possess their peer's public keys and key identifiers for token generation and verification.
 
 You can generate a key pair and the corresponding peer public key from the terminal by simply running `deno run https://deno.land/x/bwt/keygen.ts`.
 
-Make sure to store the key pair somewhere safe (fx AWS Secrets Manager) so that the included secret key remains private.
+Make sure to store the key pair somewhere safe (some kind of secret store) so that the included secret key remains private.
 
-Also, hand the generated peer public key object to all peers of the party owning the generated keys.
+Narrow key pairs to as few owners as possible. Particularly, any token-issuing peer should own a key pair exclusively. Peers that only parse/verify tokens, fx a set of CRUD endpoints for a specific resource, may share a key pair.
 
 Do renew all key pairs involved in your application setting regularly!
 
