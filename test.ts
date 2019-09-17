@@ -233,10 +233,7 @@ test({
 test({
   name: "stringify nulls if version is unsupported",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      typ: 419,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ typ: 255, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -263,10 +260,7 @@ test({
 test({
   name: "stringify nulls if iat is NaN",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      iat: NaN,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ iat: NaN, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -275,10 +269,7 @@ test({
 test({
   name: "stringify nulls if iat is Infinity",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      iat: Infinity,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ iat: Infinity, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -287,10 +278,7 @@ test({
 test({
   name: "stringify nulls if iat is null",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      iat: null,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ iat: null, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -308,10 +296,7 @@ test({
 test({
   name: "stringify nulls if exp is NaN",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      exp: NaN,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ exp: NaN, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -320,10 +305,7 @@ test({
 test({
   name: "stringify nulls if exp is Infinity",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      exp: Infinity,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ exp: Infinity, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
@@ -332,10 +314,7 @@ test({
 test({
   name: "stringify nulls if exp is null",
   fn(): void {
-    const inputHeader: bwt.Header = createHeader({
-      exp: null,
-      kid: a.kid
-    });
+    const inputHeader: bwt.Header = createHeader({ exp: null, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
   }
