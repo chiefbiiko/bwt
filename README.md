@@ -4,13 +4,15 @@
 
 **B**etter **W**eb **T**oken
 
+... a web token format, generation, and verification scheme
+
 _Powered by Curve25519, ChaCha20 derivatives, and Poly1305_
 
 :warning: **Not yet formally reviewed** :construction:
 
 ## Features
 
-- `BWT`s are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption) using [`XChaCha20-Poly1305`](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01)
+- tokens are [encrypted and authenticated](https://en.wikipedia.org/wiki/Authenticated_encryption) using [`XChaCha20-Poly1305`](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01)
 
 - stoopid simple - no [crypto agility](https://en.wikipedia.org/wiki/Crypto_agility) available to module users
 
@@ -89,7 +91,7 @@ export const enum Typ {
  *
  * typ must be a supported BWT version, currently that is Typ.BWTv0 only.
  * iat and exp denote the issued-at and expiry ms timestamps of a token.
- * kid is the public key identifier of the issuing party.
+ * kid is the public key identifier of the issuing peer.
  */
 export interface Header {
   typ: Typ;
@@ -158,7 +160,7 @@ Creates a stringify function.
 
 `ownSecretKey` is the secret key of the issuing peer's key pair.
 
-`peerPublicKey` must be the peer public key object of the party that the to-be-generated tokens are meant for.
+`peerPublicKey` must be the peer public key object of the peer that the to-be-generated tokens are meant for.
 
 `createStringify` zeros the secret key buffer after computing the shared secret with the indicated peer. Just be aware that `createStringify` clears `ownSecretKey`.
 
@@ -166,7 +168,7 @@ Creates a stringify function.
 
 Creates a parse function.
 
-`ownSecretKey` is the secret key of the keypair of the party that is going to parse and verify tokens. `peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
+`ownSecretKey` is the secret key of the keypair of the peer that is going to parse and verify tokens. `peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
 
 `createParse` zeros the secret key buffer after deriving the shared key for the indicated peers. Just be aware that `createParse` clears `ownSecretKey`.
 
@@ -192,7 +194,7 @@ In case of invalid inputs or any other exceptions `stringify` returns `null`, ot
 
 Parses a token.
 
-Returns null if the token is malformatted, corrupt, expired, from an unknown issuer, or if any other exceptions occur while marshalling, such as `JSON.parse(body)` -> 💥
+Returns `null` if the token is malformatted, corrupt, invalid, expired, from an unknown issuer, or if any other exceptions occur while marshalling, such as `JSON.parse(body)` -> 💥
 
 In case of a valid token `parse` returns an object containing the token `header` and `body`.
 
@@ -208,7 +210,7 @@ You can generate a key pair and the corresponding peer public key from the termi
 
 Make sure to store the key pair somewhere safe (some kind of secret store) so that the included secret key remains private.
 
-Narrow key pairs to as few owners as possible. Particularly, any token-issuing peer should own a key pair exclusively. Peers that only parse/verify tokens, fx a set of CRUD endpoints for a specific resource, may share a key pair.
+Narrow the set of owners of a particular key pair as much as possible. Particularly, any token-issuing peer should own a key pair exclusively. Peers that only parse/verify tokens, fx a set of CRUD endpoints for a specific resource, may share a key pair.
 
 Do renew all key pairs involved in your application setting regularly!
 
@@ -234,9 +236,9 @@ Do renew all key pairs involved in your application setting regularly!
 
    [`curve25519`](https://github.com/chiefbiiko/curve25519), [`chacha20`](https://github.com/chiefbiiko/chacha20), [`hchacha20`](https://github.com/chiefbiiko/hchacha20), [`poly1305`](https://github.com/chiefbiiko/poly1305), [`chacha20-poly1305`](https://github.com/chiefbiiko/chacha20-poly1305), [`xchacha20-poly1305`](https://github.com/chiefbiiko/xchacha20-poly1305), [`std-encoding`](https://github.com/chiefbiiko/std-encoding)
 
-  **`./cache/deps/https/deno.land/x/`**
+   **`./cache/deps/https/deno.land/x/`**
 
-  [`base64`](https://github.com/chiefbiiko/base64)
+   [`base64`](https://github.com/chiefbiiko/base64)
 
 Please open an issue for your review findings. Looking forward to your feedback!
 
