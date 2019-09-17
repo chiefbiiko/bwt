@@ -3,7 +3,7 @@ import {
   assertEquals,
   assertThrows
 } from "https://deno.land/std/testing/asserts.ts";
-import { encode, decode } from "https://denopkg.com/chief/std-encoding/mod.ts";
+import { encode, decode } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
 import * as bwt from "./mod.ts";
 
