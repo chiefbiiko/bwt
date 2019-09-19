@@ -1,0 +1,20 @@
+name: test
+
+on: [push, pull-request, release]
+
+jobs:
+  build:
+    name: test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-2016, macOS-latest]
+    steps:
+      - name: clone repo
+        uses: actions/checkout@master
+      - name: install deno
+        uses: denolib/setup-deno@v1
+        with:
+          deno-version: 'v0.18.0'
+      - name: run tests
+        run: deno run ./test.ts
