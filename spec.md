@@ -6,13 +6,7 @@ The Better Web Token (BWT) scheme specifies a web token format as well as the
 corresponding generation and verification procedures.
 
 BWT aims to prevent any [ambiguities and flaws](🔮) incorporated in the
-[JOSE standards](🔮) by two main guiding principles:
-
-* cryptographic mechanisms cannot be influenced by a user
-
-* secure by default - i.e. any token is encrypted and authenticated
-
-In addition to making BWT rather foolproof the above guidelines yield lean and
+[JOSE standards](🔮) by two main guiding principles: no crypto agility, and secure by design. In addition to making BWT rather foolproof the above guidelines yield lean and
 simple APIs for the token generation and verification procedures. In sum, these  
 design basics minimize the possibility of deployment vulnerabilities.
 
