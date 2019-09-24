@@ -53,7 +53,7 @@ const HCHACHA20_ZERO_NONCE: Uint8Array = new Uint8Array(HCHACHA20_NONCE_BYTES);
 const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
 /** BWT format regex. */
-const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9+/=]{76}\.[A-Za-z0-9+/=]{2,}\.[A-Za-z0-9+/=]{24}$/;
+const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,}\.[A-Za-z0-9-_=]{24}$/;
 
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
