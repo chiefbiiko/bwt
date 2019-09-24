@@ -5,19 +5,17 @@
 The Better Web Token (BWT) scheme specifies a web token format as well as the
 corresponding generation and verification procedures.
 
-BWT aims to prevent any [ambiguities and flaws](🔮) incorporated in the
-[JOSE standards](🔮) by two main guiding principles: no crypto agility, and secure by design. In addition to making BWT rather foolproof the above guidelines yield lean and
-simple APIs for the token generation and verification procedures. In sum, these  
-design basics minimize the possibility of deployment vulnerabilities.
+The JOSE standards and its popular manifestation JWT are known to have numerous 
+[design flaws](🔮) and [deployment pitfalls](🔮). BWT utilizes a fixed AEAD 
+scheme, [XChaCha20-Poly1305](🔮), encapsulate all cryptographic operations, 
+and the APIs for the token generation and verification procedures are lean and 
+simple. By design, BWT aims to minimize the possibility of deployment 
+vulnerabilities.
 
 This document defines the BWT message format, as well as the token generation
 and token verification procedures.
 
-## Introduction
-
-Web tokens are omnipresent nowadays, but the JOSE standards and its popular
-manifestation JWT are known to have numerous [design flaws](🔮) and
-[deployment pitfalls](🔮).
+## Prior Art
 
 Over the years a number of alternatives, [PASETO](🔮), [Branca](🔮), have been
 developed. BWT is most similar to Branca which also uses
@@ -26,14 +24,11 @@ of symmetric keys. This reduces the risk of impersonation. Another notable
 difference in comparison to Branca is the requirement that every BWT token
 expires.
 
-XChaCha20-Poly1305 is a well-analyzed nonce-misuse-resistant AEAD construction
-that requires a 192-bit nonce which due to that length can be generated with a
-CSPRNG. This approach is, given the PRNG is cryptographically secure, more
-robust than common counter-based generation techniques for shorter nonces.
-
-The BWT generation and verification procedures encapsulate all cryptographic
-operations. Application developers cannot select the algorithms utilized, all
-they need to take care of is key management.
+XChaCha20-Poly1305 is a well-analyzed, nonce-misuse-resistant, recently 
+standardized, AEAD construction that requires a 192-bit nonce which due to that 
+length can be generated with a CSPRNG. This approach is, given the PRNG is 
+cryptographically secure, more robust than common counter-based generation 
+techniques for shorter nonces.
 
 ## Design Goals
 
@@ -44,10 +39,14 @@ they need to take care of is key management.
 ## Token Format
 
 Basically, a BWT token has the following textual shape `header.body.signature`.
-All three token components are base64-encoded and concatenated with a dot. The
-header basically encompasses the AEAD construct's additional authenticated data.
-The body part represents the actual ciphertext, whereas the signature is the
-corresponding Poly1305 MAC.
+All three token components are base64-encoded (URL-safe) and concatenated with 
+a dot. The header basically encompasses the AEAD construct's additional 
+authenticated data. The body part represents the actual ciphertext, whereas the 
+signature is the corresponding Poly1305 MAC.
+
+Find the binary format of a header depicted below.
+
+TODO
 
 |Range|Content|
 ------|-------|

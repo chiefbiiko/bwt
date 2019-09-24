@@ -1,6 +1,6 @@
 # bwt
 
-![CI](https://github.com/chiefbiiko/bwt/workflows/ci/badge.svg)
+![ci](https://github.com/chiefbiiko/bwt/workflows/ci/badge.svg)
 
 **B**etter **W**eb **T**oken
 
