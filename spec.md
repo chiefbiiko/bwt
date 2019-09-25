@@ -57,26 +57,37 @@ Find the binary format of a header depicted below.
 A BWT key pair is essentially a Curve25519 key pair enriched by a 16-byte 
 public key identifier (kid).
 
+**Procedure**
+
 Inputs: none
 
 + generate 32 cryptographically secure pseudo random bytes as a seed value
+
 + create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the 
 seed
+
 + create the public key by performing a Curve25519 scalar multiplication of the 
 secret key and the constant value 9
+
 + create the kid as 16 cryptographically secure pseudo random bytes
 
 Outputs: secret key, public key, kid
 
 ## Shared Key Derivation
 
+BWT uses HChaCha20 to derive a shared key from a Curve25519 shared secret.
+
+**Procedure**
+
 Inputs: secret key, public key
 
 + reject low-order public keys?
+
 + obtain a shared secret by performing a Curve25519 scalar multiplication of 
 the secret and public key
+
 + create the shared key by applying HChaCha20 with the shared secret, a nonce 
-value of zero, and the 16-byte binary counterpart of the UTF-8 string "BETTER_WEB_TOKEN" 
+value of zero, and the 16-byte binary counterpart of the UTF-8 string "BETTER_WEB_TOKEN" as a constant context value
 
 Outputs: shared key
 
