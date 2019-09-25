@@ -100,8 +100,9 @@ Inputs: secret key, public key
 
 + obtain the shared secret by performing X25519 with the secret and public key
 
-+ create the shared key by applying [HChaCha20](🔮) with the shared secret, a 16-byte 
-all-zero nonce, and the 16-byte binary representation of the UTF-8 string "BETTER_WEB_TOKEN" as a constant context value
++ create the shared key by applying [HChaCha20](🔮) with the shared secret, a 
+16-byte all-zero nonce, and the 16-byte binary representation of the UTF-8 
+string "BETTER_WEB_TOKEN" as a constant context value
 
 Outputs: shared key
 
@@ -129,7 +130,8 @@ Inputs: shared key, version, issuance ms timestamp (iat), expiry ms timestamp
 + obtain a nonce by generating 24 bytes from a CSPRNG
 
 + obtain the addition authenticated data (aad) from the version, iat and 
-exp timestamps, the kid, and the nonce as defined in [Header Serialization](#header-serialization)
+exp timestamps, the kid, and the nonce as defined in 
+[Header Serialization](#header-serialization)
 
 + obtain the plaintext by serializing the body JSON object to its binary 
 representation assuming UTF-8 encoding
@@ -138,13 +140,17 @@ representation assuming UTF-8 encoding
 shared key, nonce, plaintext, and aad
 
 + obtain the token by concatenating the URL-safe base64 representations of the 
-aad, ciphertext, and signature
+aad, ciphertext, and signature, in this order
 
 + assert that the total token byte length is not greater than 4096
 
 Outputs: token
 
 ## Token Verification
+
+...
+
+Inputs: token
 
 TODO
 
