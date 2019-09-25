@@ -54,18 +54,31 @@ Find the binary format of a header depicted below.
 
 ## Key Pair Generation
 
-A BWT key pair is essentially a Curve25519 key pair enriched by a 16-byte public key identifier (kid).
+A BWT key pair is essentially a Curve25519 key pair enriched by a 16-byte 
+public key identifier (kid).
 
 Inputs: none
 
 + generate 32 cryptographically secure pseudo random bytes as a seed value
-+ create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the seed
-+ create the public key by performing a Curve25519 scalar multiplication of the secret key and the constant value 9
++ create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the 
+seed
++ create the public key by performing a Curve25519 scalar multiplication of the 
+secret key and the constant value 9
 + create the kid as 16 cryptographically secure pseudo random bytes
 
 Outputs: secret key, public key, kid
 
 ## Shared Key Derivation
+
+Inputs: secret key, public key
+
++ reject low-order public keys?
++ obtain a shared secret by performing a Curve25519 scalar multiplication of 
+the secret and public key
++ create the shared key by applying HChaCha20 with the shared secret, a nonce 
+value of zero, and the 16-byte binary counterpart of the UTF-8 string "BETTER_WEB_TOKEN" 
+
+Outputs: shared key
 
 ## Token Generation
 
