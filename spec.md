@@ -52,6 +52,14 @@ Find the binary format of a header depicted below.
 `20..36`| issuer kid
 `36..60`| nonce
 
+## Header Serialization
+
+TODO
+
+## Header Deserialization
+
+TODO
+
 ## Key Pair Generation
 
 A BWT key pair is essentially a Curve25519 key pair enriched by a 16-byte 
@@ -61,7 +69,7 @@ public key identifier (kid).
 
 Inputs: none
 
-+ generate 32 cryptographically secure pseudo random bytes as a seed value
++ obtain a seed by generating 32 bytes from a CSPRNG
 
 + create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the 
 seed
@@ -75,24 +83,71 @@ Outputs: secret key, public key, kid
 
 ## Shared Key Derivation
 
-BWT uses HChaCha20 to derive a shared key from a Curve25519 shared secret.
+BWT uses HChaCha20 to derive a shared key from a [X25519](🔮) shared secret. To ensure contributory behavior the X25519 function must reject any public key 
+that is among the following set:
+
+```
+TODO
+```
+
+Obtained from [djb's webpage on ECDH](https://cr.yp.to/ecdh.html#validate).
 
 **Procedure**
 
 Inputs: secret key, public key
 
-+ reject low-order public keys?
++ reject any public key that is among the above set
 
-+ obtain a shared secret by performing a Curve25519 scalar multiplication of 
-the secret and public key
++ obtain the shared secret by performing X25519 with the secret and public key
 
-+ create the shared key by applying HChaCha20 with the shared secret, a nonce 
-value of zero, and the 16-byte binary counterpart of the UTF-8 string "BETTER_WEB_TOKEN" as a constant context value
++ create the shared key by applying [HChaCha20](🔮) with the shared secret, a 16-byte 
+all-zero nonce, and the 16-byte binary representation of the UTF-8 string "BETTER_WEB_TOKEN" as a constant context value
 
 Outputs: shared key
 
 ## Token Generation
 
+The token generation procedure has a shared key as input. That must be the 
+shared key between the issuing and addressed peer.
+
+Any unexpected state encountered during the following procedure must not raise 
+an exception but rather just return `NULL`.
+
+**Procedure**
+
+Inputs: shared key, version, issuance ms timestamp (iat), expiry ms timestamp 
+(exp), public key identifier (kid), body (a JSON object)
+
++ assert that the version is an unsigned integer among the following set: 0
+
++ assert that iat is an unsigned integer less than or equal the current time
+
++ assert that exp is an unsigned integer greater than the current time
+
++ assert that kid has a byte length of 16
+
++ obtain a nonce by generating 24 bytes from a CSPRNG
+
++ obtain the addition authenticated data (aad) from the version, iat and 
+exp timestamps, the kid, and the nonce as defined in [Header Serialization](#header-serialization)
+
++ obtain the plaintext by serializing the body JSON object to its binary 
+representation assuming UTF-8 encoding
+
++ obtain the ciphertext and signature by applying XChaCha20-Poly1305 with the 
+shared key, nonce, plaintext, and aad
+
++ obtain the token by concatenating the URL-safe base64 representations of the 
+aad, ciphertext, and signature
+
++ assert that the total token byte length is not greater than 4096
+
+Outputs: token
+
 ## Token Verification
 
+TODO
+
 ## Test Vectors
+
+TODO
