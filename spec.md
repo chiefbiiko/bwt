@@ -32,9 +32,7 @@ a 192-bit nonce which due to that length can be generated with a CSPRNG. This
 approach is, given the PRNG is cryptographically secure, more robust than 
 common counter-based generation techniques usually used for shorter nonces.
 
-## Component Specifications
-
-### Token Format
+## Token Format
 
 Basically, a BWT token has the following textual shape `header.body.signature`.
 All three token components are URL-safe base64 strings concatenated with 
@@ -52,6 +50,8 @@ Find the binary format of a header depicted below.
 `12..20`| big-endian expiry ms timestamp
 `20..36`| issuer kid
 `36..60`| nonce
+
+## Procedures
 
 ### Header Serialization
 
@@ -184,6 +184,6 @@ Inputs: token
 
 TODO
 
-### Test Vectors
+## Test Vectors
 
 TODO
