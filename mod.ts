@@ -53,7 +53,7 @@ const HCHACHA20_ZERO_NONCE: Uint8Array = new Uint8Array(HCHACHA20_NONCE_BYTES);
 const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
 /** BWT format regex. */
-const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,}\.[A-Za-z0-9-_=]{24}$/;
+const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,3990}\.[A-Za-z0-9-_=]{24}$/;
 
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
@@ -335,16 +335,19 @@ export function createStringify(
     }
 
     let token: string;
-    let nonce: Uint8Array = new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES);
 
     try {
-      crypto.getRandomValues(nonce);
+      const nonce: Uint8Array = crypto.getRandomValues(
+        new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES)
+      );
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
 
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
 
       const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad);
+
+      plaintext.fill(0x00, 0, plaintext.byteLength);
 
       token = assembleToken(sealed.aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
@@ -418,11 +421,12 @@ export function createParse(
     }
 
     let header: Header;
-    let kid: string;
-    let nonce: Uint8Array;
     let body: Body;
 
     try {
+      let kid: string;
+      let nonce: Uint8Array;
+
       const parts: string[] = token.split(".");
 
       const aad: Uint8Array = encode(parts[0], "base64");
@@ -444,6 +448,8 @@ export function createParse(
       );
 
       body = JSON.parse(decode(plaintext, "utf8"));
+
+      plaintext.fill(0x00, 0, plaintext.byteLength);
     } catch (_) {
       return null;
     }

@@ -147,7 +147,7 @@ asserts) must not raise an exception but rather return a null value.
 #### Procedure
 
 **Inputs:** shared key, version, issuance ms timestamp (iat), expiry ms timestamp 
-(exp), public key identifier (kid), body (a JSON object)
+(exp), public key identifier (kid), body (must be coercible a JSON object)
 
 + assert that the version is an unsigned integer among the following set: 0
 
@@ -163,11 +163,15 @@ asserts) must not raise an exception but rather return a null value.
 exp timestamps, the kid, and the nonce as defined in 
 [Header Serialization](#header-serialization)
 
-+ obtain the plaintext by serializing the body JSON object to its binary 
++ obtain the JSON body by serializing the body according to [🔮](🔮)
+
++ obtain the plaintext by serializing the JSON body to its binary 
 representation assuming UTF-8 encoding
 
 + obtain the ciphertext and signature by applying XChaCha20-Poly1305 with the 
 shared key, nonce, plaintext, and aad
+
++ zero out the plaintext memory
 
 + obtain the token by concatenating the URL-safe base64 representations of the 
 aad, ciphertext, and signature, in this order, with a dot
