@@ -74,6 +74,8 @@ Inputs: none
 + create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the 
 seed
 
++ zero out the seed memory
+
 + create the public key by performing a Curve25519 scalar multiplication of the 
 secret key and the constant value 9
 
@@ -104,15 +106,18 @@ Inputs: secret key, public key
 16-byte all-zero nonce, and the 16-byte binary representation of the UTF-8 
 string "BETTER_WEB_TOKEN" as a constant context value
 
++ zero out the shared secret memory
+
 Outputs: shared key
 
 ## Token Generation
 
-The token generation procedure has a shared key as input. That must be the 
-shared key between the issuing and addressed peer.
+The token generation procedure takes the shared key between the issuing and 
+addressed peer as input, see [Shared Key Derivation](#shared-key-derivation) 
+for details.
 
-Any unexpected state encountered during the following procedure must not raise 
-an exception but rather just return `NULL`.
+Any unexpected state encountered during the following procedure (e.g. negative 
+asserts) must not raise an exception but rather return a null value.
 
 **Procedure**
 
@@ -129,7 +134,7 @@ Inputs: shared key, version, issuance ms timestamp (iat), expiry ms timestamp
 
 + obtain a nonce by generating 24 bytes from a CSPRNG
 
-+ obtain the addition authenticated data (aad) from the version, iat and 
++ obtain the additional authenticated data (aad) from the version, iat and 
 exp timestamps, the kid, and the nonce as defined in 
 [Header Serialization](#header-serialization)
 
