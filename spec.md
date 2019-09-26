@@ -27,16 +27,17 @@ of symmetric keys. This reduces the risk of impersonation. Another notable
 difference in comparison to Branca is the requirement that every BWT token
 expires.
 
-XChaCha20-Poly1305 is a well-analyzed, nonce-misuse-resistant, recently 
-standardized, AEAD construction that requires a 192-bit nonce which due to that 
-length can be generated with a CSPRNG. This approach is, given the PRNG is 
-cryptographically secure, more robust than common counter-based generation 
-techniques usually used for shorter nonces.
+XChaCha20-Poly1305 is a recently standardized, AEAD construction that requires 
+a 192-bit nonce which due to that length can be generated with a CSPRNG. This 
+approach is, given the PRNG is cryptographically secure, more robust than 
+common counter-based generation techniques usually used for shorter nonces.
 
-## Token Format
+## Component Specifications
+
+### Token Format
 
 Basically, a BWT token has the following textual shape `header.body.signature`.
-All three token components are base64-encoded (URL-safe) and concatenated with 
+All three token components are URL-safe base64 strings concatenated with 
 a dot. The header basically encompasses the AEAD construct's additional 
 authenticated data. The body part represents the actual ciphertext, whereas the 
 signature is the corresponding Poly1305 MAC.
@@ -52,22 +53,42 @@ Find the binary format of a header depicted below.
 `20..36`| issuer kid
 `36..60`| nonce
 
-## Header Serialization
+### Header Serialization
+
+#### Procedure
+
+**Inputs:** version, issuance ms timestamp (iat), expiry ms timestamp 
+(exp), public key identifier (kid), nonce
+
++ obtain a buffer by acquiring (allocate or require as additional input) 60 
+bytes of memory
+
++ set the buffer's byte range 0..3 to `0x42 0x57 0x54`
+
++ set the buffer's byte 3..4 of the buffer to the version input parameter
+
++ set the buffer's byte range 4..12 to the big-endian representation of iat
+
++ set the buffer's byte range 12..20 to the big-endian representation of exp
+
++ set the buffer's byte range 20..36 to the kid
+
++ set the buffer's byte range 36..60 to the nonce
+
+**Outputs:** buffer
+
+### Header Deserialization
 
 TODO
 
-## Header Deserialization
-
-TODO
-
-## Key Pair Generation
+### Key Pair Generation
 
 A BWT key pair is essentially a Curve25519 key pair enriched by a 16-byte 
 public key identifier (kid).
 
-**Procedure**
+#### Procedure
 
-Inputs: none
+**Inputs:** none
 
 + obtain a seed by generating 32 bytes from a CSPRNG
 
@@ -81,9 +102,9 @@ secret key and the constant value 9
 
 + create the kid as 16 cryptographically secure pseudo random bytes
 
-Outputs: secret key, public key, kid
+**Outputs:** secret key, public key, kid
 
-## Shared Key Derivation
+### Shared Key Derivation
 
 BWT uses HChaCha20 to derive a shared key from a [X25519](🔮) shared secret. To ensure contributory behavior the X25519 function must reject any public key 
 that is among the following set:
@@ -92,11 +113,15 @@ that is among the following set:
 TODO
 ```
 
-Obtained from [djb's webpage on ECDH](https://cr.yp.to/ecdh.html#validate).
+Obtained from 
+[Daniel J. Bernstein's webpage on ECDH](https://cr.yp.to/ecdh.html#validate).
 
-**Procedure**
+The secret and public key must have been generated using the procedure 
+specified in [Key Pair Generation](#key-pair-generation).
 
-Inputs: secret key, public key
+#### Procedure
+
+**Inputs:** secret key, public key
 
 + reject any public key that is among the above set
 
@@ -108,9 +133,9 @@ string "BETTER_WEB_TOKEN" as a constant context value
 
 + zero out the shared secret memory
 
-Outputs: shared key
+**Outputs:** shared key
 
-## Token Generation
+### Token Generation
 
 The token generation procedure takes the shared key between the issuing and 
 addressed peer as input, see [Shared Key Derivation](#shared-key-derivation) 
@@ -119,9 +144,9 @@ for details.
 Any unexpected state encountered during the following procedure (e.g. negative 
 asserts) must not raise an exception but rather return a null value.
 
-**Procedure**
+#### Procedure
 
-Inputs: shared key, version, issuance ms timestamp (iat), expiry ms timestamp 
+**Inputs:** shared key, version, issuance ms timestamp (iat), expiry ms timestamp 
 (exp), public key identifier (kid), body (a JSON object)
 
 + assert that the version is an unsigned integer among the following set: 0
@@ -145,13 +170,13 @@ representation assuming UTF-8 encoding
 shared key, nonce, plaintext, and aad
 
 + obtain the token by concatenating the URL-safe base64 representations of the 
-aad, ciphertext, and signature, in this order
+aad, ciphertext, and signature, in this order, with a dot
 
 + assert that the total token byte length is not greater than 4096
 
-Outputs: token
+**Outputs:** token
 
-## Token Verification
+### Token Verification
 
 ...
 
@@ -159,6 +184,6 @@ Inputs: token
 
 TODO
 
-## Test Vectors
+### Test Vectors
 
 TODO

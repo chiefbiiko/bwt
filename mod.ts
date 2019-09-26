@@ -14,7 +14,7 @@ import {
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
-// TODO: base62 to be url-safe??
+// TODO: adjust this impl to comply with the spec!
 
 /** Supported BWT versions. */
 export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
