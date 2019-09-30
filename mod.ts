@@ -191,7 +191,7 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  // TODO: check for low-order public key necessary?
+  // TODO: check for low-order public keys
   const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
   const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
