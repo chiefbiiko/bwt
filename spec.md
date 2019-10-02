@@ -206,6 +206,8 @@ for details.
 Any unexpected state encountered during the following procedure (i.e. negative
 asserts) must not raise an exception but rather return a null value.
 
+#### Procedure
+
 **Inputs:** shared key, token
 
 + assert that the token matches this regular expression:
