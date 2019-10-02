@@ -240,7 +240,9 @@ Do renew all key pairs involved in your application setting regularly!
 
    [`base64`](https://github.com/chiefbiiko/base64)
 
-Please open an issue for your review findings. Looking forward to your feedback!
+In addition to the bare code find a definition of the BWT scheme in the 
+[specification](./spec.md). Please open an issue for your review findings. 
+Looking forward to your feedback!
 
 **_Thank you for reviewing!_**
 
