@@ -447,14 +447,16 @@ export function createParse(
         tag
       );
 
-      body = JSON.parse(decode(plaintext, "utf8"));
-
+      const jsonPlaintext: string = decode(plaintext, "utf8");
+      
       plaintext.fill(0x00, 0, plaintext.byteLength);
+
+      body = JSON.parse(jsonPlaintext);
     } catch (_) {
       return null;
     }
 
-    if (!body || !isValidHeader(header)) {
+    if (!body || body.constructor !== Object || !isValidHeader(header)) {
       return null;
     }
 

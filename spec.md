@@ -206,7 +206,7 @@ for details.
 Any unexpected state encountered during the following procedure (i.e. negative
 asserts) must not raise an exception but rather return a null value.
 
-**Inputs:** token
+**Inputs:** shared key, token
 
 + assert that the token matches this regular expression:
 `^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,3990}\.[A-Za-z0-9-_=]{24}$`
@@ -220,9 +220,33 @@ asserts) must not raise an exception but rather return a null value.
 
   + obtain the received tag by serializing the third part from a URL-safe base64 string to a buffer
 
-TODO
++ create the version, issuance ms timestamp (iat), expiry ms timestamp
+(exp), public key identifier (kid), and nonce by applying the 
+[Header Deserialization](#header-deserialization) procedure with the aad as 
+input
 
-**Outputs:**
++ obtain the plaintext by applying XChaCha20-Poly1305 with the
+shared key, nonce, ciphertext, aad, and received tag
+
++ obtain the JSON plaintext by deserializing the binary plaintext assuming 
+UTF-8 encoding
+
++ zero out the plaintext memory
+
++ create the body by parsing the JSON plaintext
+
++ assert that the body is an object
+
++ assert that the version is an unsigned integer among the following set: 0
+
++ assert that iat is an unsigned integer less than or equal the current time
+
++ assert that exp is an unsigned integer greater than the current time
+
++ assert that kid has a byte length of 16
+
+**Outputs:** body, version, issuance ms timestamp (iat), expiry ms timestamp
+(exp), public key identifier (kid)
 
 ## Test Vectors
 
