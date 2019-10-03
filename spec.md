@@ -121,12 +121,24 @@ secret key and the constant value 9
 
 ### Shared Key Derivation
 
-BWT uses HChaCha20 to derive a shared key from a [X25519](🔮) shared secret.
-To ensure contributory behavior the X25519 function must reject any public key
-that is among the following set:
+BWT uses [HChaCha20](🔮) to derive a shared key from a [X25519](🔮) shared secret.
+To ensure contributory behavior the X25519 function must reject the following public keys:
 
 ```
-TODO
+[
+  0000000000000000000000000000000000000000000000000000000000000000,
+  0100000000000000000000000000000000000000000000000000000000000000,
+  e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800,
+  5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157,
+  ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  cdeb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b880,
+  4c9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f11d7,
+  d9ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+  daffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+  dbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+]
 ```
 
 Obtained from
@@ -139,7 +151,7 @@ specified in [Key Pair Generation](#key-pair-generation).
 
 **Inputs:** secret key, public key
 
-+ reject any public key that is among the above set
++ assert that the public key is not among the above set
 
 + obtain the shared secret by performing X25519 with the secret and public key
 
