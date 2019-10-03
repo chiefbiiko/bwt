@@ -143,19 +143,12 @@ interface Sealed {
   tag: Uint8Array;
 }
 
-/** Bike-shed constant-time buffer equality check. */
-export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  let diff: number = a.byteLength === b.byteLength ? 0 : 1;
-
-  for (let i: number = Math.max(a.byteLength, b.byteLength) - 1; i >= 0; --i) {
-    diff |= a[i] ^ b[i];
-  }
-
-  return diff === 0;
-}
-
 /** Branchless buffer equality check. */
-function constantTimeEqual(a: Uint8Array, b: Uint8Array, length: number): boolean {
+function constantTimeEqual(
+  a: Uint8Array,
+  b: Uint8Array,
+  length: number
+): boolean {
   let diff: number = 0;
 
   for (let i: number = 0; i < length; ++i) {
@@ -217,12 +210,15 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey => constantTimeEqual(publicKey, lowOrderPublicKey));
-  
+  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(
+    lowOrderPublicKey =>
+      constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
+  );
+
   if (isLowOrderPublicKey) {
     throw new TypeError("invalid public key");
   }
-  
+
   const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
   const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
@@ -320,12 +316,15 @@ export function generateKeyPair(): KeyPair {
   } = CURVE25519.generateKeys(seed);
 
   seed.fill(0x00, 0, seed.byteLength);
-  
-  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey => constantTimeEqual(keypair.publicKey, lowOrderPublicKey));
-  
+
+  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(
+    lowOrderPublicKey =>
+      constantTimeEqual(keypair.publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
+  );
+
   if (isLowOrderPublicKey) {
-    keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength)
-    
+    keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
+
     return generateKeyPair();
   }
 
