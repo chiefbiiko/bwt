@@ -51,6 +51,33 @@ Find the binary format of a header depicted below.
 `20..36`| issuer kid
 `36..60`| nonce
 
+## Public Key Validation
+
+A BWT key pair consists of a Curve25519 key pair, with the secret and public 
+keys having a length of 32, enriched with a 16-byte public key 
+identifier. BWT requires contributory behavior, therefore the following 
+low-order public keys are invalid and must be rejected by any BWT procedure.
+
+```
+[
+  0000000000000000000000000000000000000000000000000000000000000000,
+  0100000000000000000000000000000000000000000000000000000000000000,
+  e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800,
+  5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157,
+  ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
+  cdeb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b880,
+  4c9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f11d7,
+  d9ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+  daffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+  dbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+]
+```
+
+Obtained from
+[Daniel J. Bernstein's webpage on ECDH](https://cr.yp.to/ecdh.html#validate).
+
 ## Procedures
 
 ### Header Serialization
@@ -115,34 +142,16 @@ seed
 + create the public key by performing a Curve25519 scalar multiplication of the
 secret key and the constant value 9
 
++ assert that the public key is not among the set defined in 
+[Public Key Validation](#public-key-validation)
+
 + create the kid as 16 cryptographically secure pseudo random bytes
 
 **Outputs:** secret key, public key, kid
 
 ### Shared Key Derivation
 
-BWT uses [HChaCha20](🔮) to derive a shared key from a [X25519](🔮) shared secret.
-To ensure contributory behavior the X25519 function must reject the following public keys:
-
-```
-[
-  0000000000000000000000000000000000000000000000000000000000000000,
-  0100000000000000000000000000000000000000000000000000000000000000,
-  e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800,
-  5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157,
-  ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
-  edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
-  eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f,
-  cdeb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b880,
-  4c9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f11d7,
-  d9ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-  daffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-  dbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-]
-```
-
-Obtained from
-[Daniel J. Bernstein's webpage on ECDH](https://cr.yp.to/ecdh.html#validate).
+BWT uses [HChaCha20](🔮) to derive a shared key from a X25519 shared secret.
 
 The secret and public key must have been generated using the procedure
 specified in [Key Pair Generation](#key-pair-generation).
@@ -151,7 +160,8 @@ specified in [Key Pair Generation](#key-pair-generation).
 
 **Inputs:** secret key, public key
 
-+ assert that the public key is not among the above set
++ assert that the public key is not among the set defined in 
+[Public Key Validation](#public-key-validation)
 
 + obtain the shared secret by performing X25519 with the secret and public key
 

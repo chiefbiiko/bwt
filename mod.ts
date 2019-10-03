@@ -55,6 +55,21 @@ const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 /** BWT format regex. */
 const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,3990}\.[A-Za-z0-9-_=]{24}$/;
 
+const LOW_ORDER_PUBLIC_KEYS: Uint8Array[] = [
+  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  "4Ot6fDtBuK4WVuP68Z_EatoJjeucMrH9hmIFFl9JuAA=",
+  "X5yVvKNQjCSx0LFVnIPvWwREXMRYHI6G2CJO3dCfEVc=",
+  "7P_______________________________________38=",
+  "7f_______________________________________38=",
+  "7v_______________________________________38=",
+  "zet6fDtBuK4WVuP68Z_EatoJjeucMrH9hmIFFl9JuIA=",
+  "TJyVvKNQjCSx0LFVnIPvWwREXMRYHI6G2CJO3dCfEdc=",
+  "2f________________________________________8=",
+  "2v________________________________________8=",
+  "2_________________________________________8="
+].map((publicKey: string): Uint8Array => encode(publicKey, "base64"));
+
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
   BWTv0
@@ -139,6 +154,17 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
+/** Branchless buffer equality check. */
+function constantTimeEqual(a: Uint8Array, b: Uint8Array, length: number): boolean {
+  let diff: number = 0;
+
+  for (let i: number = 0; i < length; ++i) {
+    diff |= a[i] ^ b[i];
+  }
+
+  return diff === 0;
+}
+
 /** Reads given bytes as an unsigned big-endian bigint. */
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
@@ -191,7 +217,12 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  // TODO: check for low-order public keys
+  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey => constantTimeEqual(publicKey, lowOrderPublicKey));
+  
+  if (isLowOrderPublicKey) {
+    throw new TypeError("invalid public key");
+  }
+  
   const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
   const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
@@ -289,6 +320,14 @@ export function generateKeyPair(): KeyPair {
   } = CURVE25519.generateKeys(seed);
 
   seed.fill(0x00, 0, seed.byteLength);
+  
+  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey => constantTimeEqual(keypair.publicKey, lowOrderPublicKey));
+  
+  if (isLowOrderPublicKey) {
+    keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength)
+    
+    return generateKeyPair();
+  }
 
   return { ...keypair, kid };
 }
@@ -448,7 +487,7 @@ export function createParse(
       );
 
       const jsonPlaintext: string = decode(plaintext, "utf8");
-      
+
       plaintext.fill(0x00, 0, plaintext.byteLength);
 
       body = JSON.parse(jsonPlaintext);
