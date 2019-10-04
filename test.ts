@@ -3,7 +3,10 @@ import {
   assertEquals,
   assertThrows
 } from "https://deno.land/std/testing/asserts.ts";
-import { encode, decode } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
+import {
+  encode,
+  decode
+} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
 import * as bwt from "./mod.ts";
 
@@ -201,6 +204,22 @@ test({
       },
       TypeError,
       "no peer public keys provided"
+    );
+  }
+});
+
+test({
+  name: "createParse throws if a low-order public key is passed",
+  fn(): void {
+    assertThrows(
+      (): void => {
+        bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
+          publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
+          kid: new Uint8Array(bwt.KID_BYTES)
+        });
+      },
+      TypeError,
+      "invalid public key"
     );
   }
 });
