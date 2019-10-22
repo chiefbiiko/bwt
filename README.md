@@ -24,6 +24,9 @@ _Powered by Curve25519, ChaCha20 derivatives, and Poly1305_
 
 ## Usage
 
+Below is an Alice and Bob example. Note that in the real world Alice and Bob are
+typically an auth and a resource endpoint respectively.
+
 ```ts
 import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
