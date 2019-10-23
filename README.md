@@ -30,8 +30,8 @@ typically an auth and a resource endpoint respectively.
 ```ts
 import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
 
-const alice = { ...bwt.generateKeyPair(), stringify: null };
-const bob = { ...bwt.generateKeyPair(), parse: null };
+const alice = { ...bwt.generateKeyPair() };
+const bob = { ...bwt.generateKeyPair() };
 
 alice.stringify = bwt.createStringify(alice.secretKey, {
   kid: bob.kid,
