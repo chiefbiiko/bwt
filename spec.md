@@ -7,8 +7,8 @@ corresponding token generation, token verification, as well as key generation
 and derivation procedures.
 
 The JOSE standards and its popular manifestation JWT have numerous
-[design flaws](🔮) and [deployment pitfalls](🔮). In contrast, BWT utilizes a
-fixed AEAD scheme, [XChaCha20-Poly1305](🔮), encapsulates all cryptographic
+[design flaws](https://www.chosenplaintext.ca/2015/03/31/jwt-algorithm-confusion.html) and [deployment pitfalls](https://auth0.com/blog/a-look-at-the-latest-draft-for-jwt-bcp/#Pitfalls-and-Common-Attacks). In contrast, BWT
+utilizes a fixed AEAD scheme, [XChaCha20-Poly1305](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2), encapsulates all cryptographic
 operations, and exposes only lean and simple APIs. By design, BWT aims to
 minimize the possibility of deployment vulnerabilities.
 
@@ -20,9 +20,9 @@ minimize the possibility of deployment vulnerabilities.
 
 ## Prior Art
 
-Over the years a number of JWT alternatives, [PASETO](🔮), [Branca](🔮), have
+Over the years a number of JWT alternatives, [PASETO](https://paseto.io/), [Branca](https://branca.io/), have
 been developed. BWT is most similar to Branca which also uses
-[XChaCha20-Poly1305](🔮). In contrast to Branca BWT utilizes key pairs instead
+[XChaCha20-Poly1305](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2). In contrast to Branca BWT utilizes key pairs instead
 of symmetric keys. This reduces the risk of impersonation. Another notable
 difference in comparison to Branca is the requirement that every BWT token
 expires.
@@ -53,9 +53,9 @@ Find the binary format of a header depicted below.
 
 ## Public Key Validation
 
-A BWT key pair consists of a Curve25519 key pair, with the secret and public 
-keys having a length of 32, enriched with a 16-byte public key 
-identifier. BWT requires contributory behavior, therefore the following 
+A BWT key pair consists of a Curve25519 key pair, with the secret and public
+keys having a length of 32, enriched with a 16-byte public key
+identifier. BWT requires contributory behavior, therefore the following
 low-order public keys are invalid and must be rejected by any BWT procedure.
 
 ```
@@ -142,7 +142,7 @@ seed
 + create the public key by performing a Curve25519 scalar multiplication of the
 secret key and the constant value 9
 
-+ assert that the public key is not among the set defined in 
++ assert that the public key is not among the set defined in
 [Public Key Validation](#public-key-validation)
 
 + create the kid as 16 cryptographically secure pseudo random bytes
@@ -151,7 +151,7 @@ secret key and the constant value 9
 
 ### Shared Key Derivation
 
-BWT uses [HChaCha20](🔮) to derive a shared key from a X25519 shared secret.
+BWT uses [HChaCha20](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2.2) to derive a shared key from a X25519 shared secret.
 
 The secret and public key must have been generated using the procedure
 specified in [Key Pair Generation](#key-pair-generation).
@@ -160,12 +160,12 @@ specified in [Key Pair Generation](#key-pair-generation).
 
 **Inputs:** secret key, public key
 
-+ assert that the public key is not among the set defined in 
++ assert that the public key is not among the set defined in
 [Public Key Validation](#public-key-validation)
 
 + obtain the shared secret by performing X25519 with the secret and public key
 
-+ create the shared key by applying [HChaCha20](🔮) with the shared secret, a
++ create the shared key by applying [HChaCha20](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2.2) with the shared secret, a
 16-byte all-zero nonce, and the 16-byte binary representation of the UTF-8
 string "BETTER_WEB_TOKEN" as a constant context value
 
@@ -245,14 +245,14 @@ asserts) must not raise an exception but rather return a null value.
   + obtain the received tag by serializing the third part from a URL-safe base64 string to a buffer
 
 + create the version, issuance ms timestamp (iat), expiry ms timestamp
-(exp), public key identifier (kid), and nonce by applying the 
-[Header Deserialization](#header-deserialization) procedure with the aad as 
+(exp), public key identifier (kid), and nonce by applying the
+[Header Deserialization](#header-deserialization) procedure with the aad as
 input
 
 + obtain the plaintext by applying XChaCha20-Poly1305 with the
 shared key, nonce, ciphertext, aad, and received tag
 
-+ obtain the JSON plaintext by deserializing the binary plaintext assuming 
++ obtain the JSON plaintext by deserializing the binary plaintext assuming
 UTF-8 encoding
 
 + zero out the plaintext memory
