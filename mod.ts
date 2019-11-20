@@ -215,6 +215,7 @@ function deriveSharedKey(
       constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
   );
 
+  // TODO: move to validate public key and sync with spec
   if (isLowOrderPublicKey) {
     throw new TypeError("invalid public key");
   }
@@ -322,6 +323,7 @@ export function generateKeyPair(): KeyPair {
       constantTimeEqual(keypair.publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
   );
 
+  // TODO: move to validate public key and sync with spec
   if (isLowOrderPublicKey) {
     keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
 
