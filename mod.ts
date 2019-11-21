@@ -55,6 +55,7 @@ const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 /** BWT format regex. */
 const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,3990}\.[A-Za-z0-9-_=]{24}$/;
 
+/** Curve25519 low-order public keys. https://cr.yp.to/ecdh.html#validate */
 const LOW_ORDER_PUBLIC_KEYS: Uint8Array[] = [
   "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
   "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
