@@ -14,7 +14,7 @@ import {
   decode
 } from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
 
-// TODO: adjust this impl to comply with the spec!
+// TODO: check that this impl complies with the spec!
 
 /** Supported BWT versions. */
 export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
@@ -159,6 +159,14 @@ function constantTimeEqual(
   return diff === 0;
 }
 
+/** Whether given public key has a low order? */
+function isLowOrderPublicKey(publicKey: Uint8Array): boolean {
+  return LOW_ORDER_PUBLIC_KEYS.some(
+    lowOrderPublicKey =>
+      constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
+  );
+}
+
 /** Reads given bytes as an unsigned big-endian bigint. */
 function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
@@ -211,13 +219,8 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(
-    lowOrderPublicKey =>
-      constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
-  );
-
-  // TODO: move to validate public key and sync with spec
-  if (isLowOrderPublicKey) {
+  // TODO: sync with spec
+  if (isLowOrderPublicKey(publicKey)) {
     throw new TypeError("invalid public key");
   }
 
@@ -319,13 +322,8 @@ export function generateKeyPair(): KeyPair {
 
   seed.fill(0x00, 0, seed.byteLength);
 
-  const isLowOrderPublicKey: boolean = LOW_ORDER_PUBLIC_KEYS.some(
-    lowOrderPublicKey =>
-      constantTimeEqual(keypair.publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
-  );
-
-  // TODO: move to validate public key and sync with spec
-  if (isLowOrderPublicKey) {
+  // TODO: sync with spec
+  if (isLowOrderPublicKey(keypair.publicKey)) {
     keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
 
     return generateKeyPair();
