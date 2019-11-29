@@ -219,7 +219,7 @@ test({
         });
       },
       TypeError,
-      "invalid public key"
+      "invalid peer public keys"
     );
   }
 });

@@ -219,11 +219,6 @@ function deriveSharedKey(
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Uint8Array {
-  // TODO: sync with spec
-  if (isLowOrderPublicKey(publicKey)) {
-    throw new TypeError("invalid public key");
-  }
-
   const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
   const sharedKey: Uint8Array = new Uint8Array(HCHACHA20_OUTPUT_BYTES);
@@ -293,7 +288,8 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
     x &&
     x.kid &&
     x.kid.byteLength === KID_BYTES &&
-    x.publicKey.byteLength === PUBLIC_KEY_BYTES
+    x.publicKey.byteLength === PUBLIC_KEY_BYTES &&
+    !isLowOrderPublicKey(x.publicKey)
   );
 }
 
