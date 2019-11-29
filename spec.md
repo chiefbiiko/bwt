@@ -233,7 +233,7 @@ asserts) must not raise an exception but rather return a null value.
 **Inputs:** shared key, token
 
 + assert that the token matches this regular expression:
-`^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{2,3990}\.[A-Za-z0-9-_=]{24}$`
+`^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{4,3990}\.[A-Za-z0-9-_=]{24}$`
 
 + split the token into three pieces on the dot character, discarding it
 
