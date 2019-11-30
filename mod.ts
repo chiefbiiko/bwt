@@ -309,7 +309,6 @@ export function generateKeyPair(): KeyPair {
   const kid: Uint8Array = new Uint8Array(KID_BYTES);
 
   crypto.getRandomValues(seed);
-  crypto.getRandomValues(kid);
 
   const keypair: {
     secretKey: Uint8Array;
@@ -318,12 +317,13 @@ export function generateKeyPair(): KeyPair {
 
   seed.fill(0x00, 0, seed.byteLength);
 
-  // TODO: sync with spec
   if (isLowOrderPublicKey(keypair.publicKey)) {
     keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
 
     return generateKeyPair();
   }
+  
+  crypto.getRandomValues(kid);
 
   return { ...keypair, kid };
 }

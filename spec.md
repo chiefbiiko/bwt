@@ -110,15 +110,15 @@ bytes of memory
 
 **Inputs:** buffer
 
-+ create the version by reading the fourth byte of the buffer
++ obtain the version by reading the fourth byte of the buffer
 
-+ create iat by reading the buffer's byte range 4..12 as a big-endian integer
++ obtain iat by reading the buffer's byte range 4..12 as a big-endian integer
 
-+ create exp by reading the buffer's byte range 12..20 as a big-endian integer
++ obtain exp by reading the buffer's byte range 12..20 as a big-endian integer
 
-+ create the kid from the buffer's byte range 20..36
++ obtain the kid from the buffer's byte range 20..36
 
-+ create the nonce from the buffer's byte range 36..60
++ obtain the nonce from the buffer's byte range 36..60
 
 **Outputs:** version, issuance ms timestamp (iat), expiry ms timestamp
 (exp), public key identifier (kid), nonce
@@ -134,18 +134,23 @@ public key identifier (kid).
 
 + obtain a seed by generating 32 bytes from a CSPRNG
 
-+ create the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the
++ obtain the secret key by clearing bit 0, 1, 2, 255 and setting bit 254 of the
 seed
 
 + zero out the seed memory
 
-+ create the public key by performing a Curve25519 scalar multiplication of the
++ obtain the public key by performing a Curve25519 scalar multiplication of the
 secret key and the constant value 9
 
 + assert that the public key is not among the set defined in
 [Public Key Validation](#public-key-validation)
+  
+  + if the public key is in fact of low order, the corresponding secret key 
+  memory must be zeroed - thereafter, implementations are free to either
+  fallback to another key pair generation attempt, throw an error, or return a 
+  null value
 
-+ create the kid as 16 cryptographically secure pseudo random bytes
++ obtain the kid by generating 16 bytes from a CSPRNG
 
 **Outputs:** secret key, public key, kid
 
