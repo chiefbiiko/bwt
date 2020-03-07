@@ -1,20 +1,17 @@
-import { Curve25519 } from "https://denopkg.com/chiefbiiko/curve25519/mod.ts";
 import {
+  Curve25519,
+  encode,
+  decode,
+  hchacha20,
+  HCHACHA20_OUTPUT_BYTES,
+  HCHACHA20_NONCE_BYTES,
   seal,
   open,
-  NONCE_BYTES as XCHACHA20_POLY1305_NONCE_BYTES
-} from "https://denopkg.com/chiefbiiko/xchacha20-poly1305/mod.ts";
-import {
-  hchacha20,
-  OUTPUT_BYTES as HCHACHA20_OUTPUT_BYTES,
-  NONCE_BYTES as HCHACHA20_NONCE_BYTES
-} from "https://denopkg.com/chiefbiiko/hchacha20/mod.ts";
-import {
-  encode,
-  decode
-} from "https://denopkg.com/chiefbiiko/std-encoding/mod.ts";
-
-// TODO: check that this impl complies with the spec!
+  XCHACHA20_POLY1305_NONCE_BYTES,
+  XCHACHA20_POLY1305_AAD_BYTES_MAX,
+  XCHACHA20_POLY1305_PLAINTEXT_BYTES_MAX,
+  XCHACHA20_CIPHERTEXT_BYTES_MAX
+} from "./deps.ts";
 
 /** Supported BWT versions. */
 export const SUPPORTED_VERSIONS: Set<number> = new Set<number>([0]);
@@ -43,17 +40,18 @@ const BIGINT_BYTE_MASK: bigint = 255n;
 /** BigInt 8. */
 const BIGINT_BYTE_SHIFT: bigint = 8n;
 
-/** "BWT" as buffer. */
+/** "BWT" as buffer - magic bytes. */
 const BWT_MAGIC: Uint8Array = Uint8Array.from([66, 87, 84]);
 
-/** HChacha20 all-zero nonce. */
+/** HChacha20 all-zero nonce used for key stretching. */
 const HCHACHA20_ZERO_NONCE: Uint8Array = new Uint8Array(HCHACHA20_NONCE_BYTES);
 
-/** BWT context constant. */
+/** BWT context constant used with HChaCha20 for key stretching. */
 const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
 /** BWT format regex. */
-const BWT_PATTERN: RegExp = /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{4,3990}\.[A-Za-z0-9-_=]{24}$/;
+const BWT_PATTERN: RegExp =
+  /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{4,3990}\.[A-Za-z0-9-_=]{24}$/;
 
 /** Curve25519 low-order public keys. https://cr.yp.to/ecdh.html#validate */
 const LOW_ORDER_PUBLIC_KEYS: Uint8Array[] = [
@@ -103,12 +101,12 @@ export interface Contents {
 
 /** BWT stringify function. */
 export interface Stringify {
-  (header: Header, body: Body): string;
+  (header: Header, body: Body): null | string;
 }
 
 /** BWT parse function. */
 export interface Parse {
-  (token: string): Contents;
+  (token: string): null | Contents;
 }
 
 /**
@@ -161,9 +159,8 @@ function constantTimeEqual(
 
 /** Whether given public key has a low order? */
 function isLowOrderPublicKey(publicKey: Uint8Array): boolean {
-  return LOW_ORDER_PUBLIC_KEYS.some(
-    lowOrderPublicKey =>
-      constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
+  return LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey =>
+    constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
   );
 }
 
@@ -185,7 +182,10 @@ function bigintToBytesBE(b: bigint, out: Uint8Array): void {
 }
 
 /** Converts a header and nonce to a 60-byte buffer. */
-function headerAndNonceToBuffer(header: Header, nonce: Uint8Array): Uint8Array {
+function headerAndNonceToBuffer(
+  header: Header,
+  nonce: Uint8Array
+): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
   buf.set(BWT_MAGIC, 0);
@@ -236,8 +236,8 @@ function toSharedKeyMap(
   peerPublicKeys: PeerPublicKey[]
 ): Map<string, Uint8Array> {
   return new Map<string, Uint8Array>(
-    peerPublicKeys.map(
-      (peerPublicKey: PeerPublicKey): [string, Uint8Array] => [
+    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] =>
+      [
         decode(peerPublicKey.kid, "base64"),
         deriveSharedKey(ownSecretKey, peerPublicKey.publicKey)
       ]
@@ -288,6 +288,7 @@ function isValidPeerPublicKey(x: PeerPublicKey): boolean {
     x &&
     x.kid &&
     x.kid.byteLength === KID_BYTES &&
+    x.publicKey &&
     x.publicKey.byteLength === PUBLIC_KEY_BYTES &&
     !isLowOrderPublicKey(x.publicKey)
   );
@@ -310,10 +311,14 @@ export function generateKeyPair(): KeyPair {
 
   crypto.getRandomValues(seed);
 
+  // keypair is null only if seed.length != 32 :: SECRET_KEY_BYTES === 32
   const keypair: {
     secretKey: Uint8Array;
     publicKey: Uint8Array;
-  } = CURVE25519.generateKeys(seed);
+  } = CURVE25519.generateKeys(seed) as {
+    secretKey: Uint8Array;
+    publicKey: Uint8Array;
+  };
 
   seed.fill(0x00, 0, seed.byteLength);
 
@@ -322,7 +327,7 @@ export function generateKeyPair(): KeyPair {
 
     return generateKeyPair();
   }
-  
+
   crypto.getRandomValues(kid);
 
   return { ...keypair, kid };
@@ -364,7 +369,7 @@ export function createStringify(
    * Returns null in case of invalid inputs, if the body is too big
    * (token.length > 4096), or other exceptions, fx JSON.stringify(body) -> 💥
    */
-  return function stringify(header: Header, body: Body): string {
+  return function stringify(header: Header, body: Body): null | string {
     if (!isValidHeader(header) || !body) {
       return null;
     }
@@ -380,7 +385,14 @@ export function createStringify(
 
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
 
-      const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad);
+      if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX ||
+        plaintext.byteLength > XCHACHA20_POLY1305_PLAINTEXT_BYTES_MAX)
+      {
+        return null;
+      }
+
+      // NOTE: all args to seal r of correct length - will return Sealed
+      const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad) as Sealed;
 
       plaintext.fill(0x00, 0, plaintext.byteLength);
 
@@ -450,7 +462,7 @@ export function createParse(
    * an app could choose to reject all tokens of a certain age by additionally
    * checking the mandatory iat claim of a token header.
    */
-  return function parse(token: string): Contents {
+  return function parse(token: string): null | Contents {
     if (!hasValidTokenFormat(token)) {
       return null;
     }
@@ -470,17 +482,29 @@ export function createParse(
 
       const ciphertext: Uint8Array = encode(parts[1], "base64");
 
+      if (ciphertext.byteLength > XCHACHA20_CIPHERTEXT_BYTES_MAX) {
+        return null;
+      }
+
       const tag: Uint8Array = encode(parts[2], "base64");
 
-      const sharedKey: Uint8Array = sharedKeyMap.get(kid);
+      const sharedKey: undefined | Uint8Array = sharedKeyMap.get(kid);
 
-      const plaintext: Uint8Array = open(
+      if (!sharedKey) {
+        return null;
+      }
+
+      const plaintext: null | Uint8Array = open(
         sharedKey,
         nonce,
         ciphertext,
         aad,
         tag
       );
+
+      if (!plaintext) {
+        return null;
+      }
 
       const jsonPlaintext: string = decode(plaintext, "utf8");
 

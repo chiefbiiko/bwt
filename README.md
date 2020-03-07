@@ -28,7 +28,7 @@ Below is an Alice and Bob example. Note that in the real world Alice and Bob are
 typically an auth and a resource endpoint respectively.
 
 ```ts
-import * as bwt from "https://denopkg.com/chiefbiiko/bwt/mod.ts";
+import * as bwt from "https://denopkg.com/chiefbiiko/bwt@v0.4.1/mod.ts";
 
 const alice = { ...bwt.generateKeyPair() };
 const bob = { ...bwt.generateKeyPair() };
@@ -116,12 +116,12 @@ export interface Contents {
 
 /** BWT stringify function. */
 export interface Stringify {
-  (header: Header, body: Body): string;
+  (header: Header, body: Body): null | string;
 }
 
 /** BWT parse function. */
 export interface Parse {
-  (token: string): Contents;
+  (token: string): null | Contents;
 }
 
 /**
@@ -175,7 +175,7 @@ Creates a parse function.
 
 `createParse` zeros the secret key buffer after deriving the shared key for the indicated peers. Just be aware that `createParse` clears `ownSecretKey`.
 
-#### `stringify(header: Header, body: Body): string`
+#### `stringify(header: Header, body: Body): null | string`
 
 Stringifies a token.
 
@@ -193,7 +193,7 @@ Stringifies a token.
 
 In case of invalid inputs or any other exceptions `stringify` returns `null`, otherwise a `BWT` token.
 
-#### `parse(token: string): Contents`
+#### `parse(token: string): null | Contents`
 
 Parses a token.
 
