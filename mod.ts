@@ -380,7 +380,7 @@ export function createStringify(
       );
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
-      
+
       if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX) {
         return null;
       }
@@ -475,7 +475,7 @@ export function createParse(
       const parts: string[] = token.split(".");
 
       const aad: Uint8Array = encode(parts[0], "base64");
-      
+
       if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX) {
         return null;
       }
@@ -510,7 +510,7 @@ export function createParse(
 
       const jsonPlaintext: string = decode(plaintext, "utf8");
 
-      plaintext.fill(0x00, 0, plaintext.byteLength);
+      plaintext.fill(0x00);
 
       body = JSON.parse(jsonPlaintext);
     } catch (_) {

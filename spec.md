@@ -147,8 +147,7 @@ secret key and the constant value 9
   
   + if the public key is in fact of low order, the corresponding secret key 
   memory must be zeroed - thereafter, implementations are free to either
-  fallback to another key pair generation attempt, throw an error, or return a 
-  null value
+  fallback to another key pair generation attempt or return a null value
 
 + obtain the kid by generating 16 bytes from a CSPRNG
 
@@ -170,8 +169,7 @@ specified in [Key Pair Generation](#key-pair-generation).
 
 + obtain the shared secret by performing X25519 with the secret and public key
 
-+ create the shared key by applying [HChaCha20](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2.2) with the shared secret, a
-16-byte all-zero nonce, and the 16-byte binary representation of the UTF-8
++ create the shared key by applying [HChaCha20](https://tools.ietf.org/html/draft-irtf-cfrg-xchacha-01#section-2.2) with the shared secret, a 16-byte all-zero nonce, and the 16-byte binary representation of the UTF-8
 string "BETTER_WEB_TOKEN" as a constant context value
 
 + zero out the shared secret memory
@@ -207,10 +205,14 @@ body (must be coercible to a JSON object)
 exp timestamps, the kid, and the nonce as defined in
 [Header Serialization](#header-serialization)
 
++ assert that the aad has a byte length not greater than 18446744073709551615
+
 + obtain the JSON body by stringifying the body to a valid JSON object
 
 + obtain the plaintext by serializing the JSON body to its binary
 representation assuming UTF-8 encoding
+
++ assert that the plaintext has a byte length not greater than 274877906880
 
 + obtain the ciphertext and signature by applying XChaCha20-Poly1305 with the
 shared key, nonce, plaintext, and aad
@@ -244,12 +246,16 @@ asserts) must not raise an exception but rather return a null value.
 
   + obtain the authenticated additional data (aad) by serializing the first
   part from a URL-safe base64 string to a buffer
+  
+  + assert that the aad has a byte length not greater than 18446744073709551615
 
   + obtain the ciphertext by serializing the second part from a URL-safe base64 string to a buffer
+  
+  + assert that the ciphertext has a byte length not greater than 274877906896
 
   + obtain the received tag by serializing the third part from a URL-safe base64 string to a buffer
 
-+ create the version, issuance ms timestamp (iat), expiry ms timestamp
++ obtain the version, issuance millisecond timestamp (iat), expiry millisecond timestamp
 (exp), public key identifier (kid), and nonce by applying the
 [Header Deserialization](#header-deserialization) procedure with the aad as
 input
@@ -262,7 +268,7 @@ UTF-8 encoding
 
 + zero out the plaintext memory
 
-+ create the body by parsing the JSON plaintext
++ obtain the body by parsing the JSON plaintext
 
 + assert that the body is an object
 
