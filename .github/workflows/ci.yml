@@ -15,6 +15,6 @@ jobs:
       - name: install deno
         uses: denolib/setup-deno@v1.2.0
         with:
-          deno-version: v0.24.0
+          deno-version: v0.35.0
       - name: run tests
         run: deno test
