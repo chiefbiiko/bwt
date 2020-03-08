@@ -225,7 +225,7 @@ function deriveSharedKey(
 
   hchacha20(sharedKey, sharedSecret, HCHACHA20_ZERO_NONCE, BWT_CONTEXT);
 
-  sharedSecret.fill(0x00, 0, sharedSecret.byteLength);
+  sharedSecret.fill(0x00);
 
   return sharedKey;
 }
@@ -320,10 +320,10 @@ export function generateKeyPair(): KeyPair {
     publicKey: Uint8Array;
   };
 
-  seed.fill(0x00, 0, seed.byteLength);
+  seed.fill(0x00);
 
   if (isLowOrderPublicKey(keypair.publicKey)) {
-    keypair.secretKey.fill(0x00, 0, keypair.secretKey.byteLength);
+    keypair.secretKey.fill(0x00);
 
     return generateKeyPair();
   }
@@ -358,8 +358,6 @@ export function createStringify(
     peerPublicKey.publicKey
   );
 
-  ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
-
   /**
    * Stringifies header and body to an authenticated and encrypted token.
    *
@@ -382,19 +380,21 @@ export function createStringify(
       );
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
+      
+      if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX) {
+        return null;
+      }
 
       const plaintext: Uint8Array = encode(JSON.stringify(body), "utf8");
 
-      if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX ||
-        plaintext.byteLength > XCHACHA20_POLY1305_PLAINTEXT_BYTES_MAX)
-      {
+      if (plaintext.byteLength > XCHACHA20_POLY1305_PLAINTEXT_BYTES_MAX) {
         return null;
       }
 
       // NOTE: all args to seal r of correct length - will return Sealed
       const sealed: Sealed = seal(sharedKey, nonce, plaintext, aad) as Sealed;
 
-      plaintext.fill(0x00, 0, plaintext.byteLength);
+      plaintext.fill(0x00);
 
       token = assembleToken(sealed.aad, sealed.ciphertext, sealed.tag);
     } catch (_) {
@@ -439,8 +439,6 @@ export function createParse(
     peerPublicKeys
   );
 
-  ownSecretKey.fill(0x00, 0, ownSecretKey.byteLength);
-
   /**
    * Parses the contents of a BWT token.
    *
@@ -477,6 +475,10 @@ export function createParse(
       const parts: string[] = token.split(".");
 
       const aad: Uint8Array = encode(parts[0], "base64");
+      
+      if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX) {
+        return null;
+      }
 
       [header, kid, nonce] = bufferToMetadata(aad);
 

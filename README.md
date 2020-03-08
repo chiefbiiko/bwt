@@ -28,7 +28,7 @@ Below is an Alice and Bob example. Note that in the real world Alice and Bob are
 typically an auth and a resource endpoint respectively.
 
 ```ts
-import * as bwt from "https://denopkg.com/chiefbiiko/bwt@v0.4.1/mod.ts";
+import * as bwt from "https://denopkg.com/chiefbiiko/bwt@v0.5.0/mod.ts";
 
 const alice = { ...bwt.generateKeyPair() };
 const bob = { ...bwt.generateKeyPair() };
@@ -165,15 +165,13 @@ Creates a stringify function.
 
 `peerPublicKey` must be the peer public key object of the peer that the to-be-generated tokens are meant for.
 
-`createStringify` zeros the secret key buffer after computing the shared secret with the indicated peer. Just be aware that `createStringify` clears `ownSecretKey`.
-
 #### `createParse(ownSecretKey: Uint8Array, ...peerPublicKeys: PeerPublicKey[]): Parse`
 
 Creates a parse function.
 
-`ownSecretKey` is the secret key of the keypair of the peer that is going to parse and verify tokens. `peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
+`ownSecretKey` is the secret key of the keypair of the peer that is going to parse and verify tokens.
 
-`createParse` zeros the secret key buffer after deriving the shared key for the indicated peers. Just be aware that `createParse` clears `ownSecretKey`.
+`peerPublicKeys` must be a non-empty list of peer public key objects to be used for verification of incoming tokens.
 
 #### `stringify(header: Header, body: Body): null | string`
 
@@ -223,11 +221,11 @@ Do renew all key pairs involved in your application setting regularly!
 
 1. Install `deno`:
 
-   `curl -fsSL https://deno.land/x/install/install.sh | sh`
+   `curl -fsSL https://deno.land/x/install/install.sh | sh -s v0.35.0`
 
 2. Get this repo:
 
-   `git clone https://github.com/chiefbiiko/bwt && cd ./bwt && mkdir ./cache`
+   `git clone https://github.com/chiefbiiko/bwt@v0.5.0 && cd ./bwt && mkdir ./cache`
 
 3. Cache all dependencies and run tests:
 
