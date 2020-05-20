@@ -221,7 +221,7 @@ Do renew all key pairs involved in your application setting regularly!
 
 1. Install `deno`:
 
-   `curl -fsSL https://deno.land/x/install/install.sh | sh -s v0.35.0`
+   `curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.0.0`
 
 2. Get this repo:
 

@@ -159,7 +159,7 @@ function constantTimeEqual(
 
 /** Whether given public key has a low order? */
 function isLowOrderPublicKey(publicKey: Uint8Array): boolean {
-  return LOW_ORDER_PUBLIC_KEYS.some(lowOrderPublicKey =>
+  return LOW_ORDER_PUBLIC_KEYS.some((lowOrderPublicKey: Uint8Array): boolean =>
     constantTimeEqual(publicKey, lowOrderPublicKey, PUBLIC_KEY_BYTES)
   );
 }
