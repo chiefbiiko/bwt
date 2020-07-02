@@ -20,7 +20,7 @@ _Powered by Curve25519, ChaCha20 derivatives, and Poly1305_
 
 ## What a BWT Looks Like
 
-`QldUAAAAAW1oMIQLAAABbWgwha5uFJlimN03VU25p8vucRhyrE3L4uWVpkbXNV3Dw-IYCXAiDl-8zJf6.sxKlDsgs7xjZAwsEmMDSDmI=.JdqcC7w3rVeVUESnseO4rQ==`
+`QldUAAAAAXOzcH1DAAABc7NwfuYuk46BldvzkOVc5e_iBOS7fT5VI8SfXlYsACKM_wUcwgOsTId7Df1D.QcVaDwjUCk0jT0hznutUxlo.uTuS46By3obgzi7Ec05ELw`
 
 ## Usage
 

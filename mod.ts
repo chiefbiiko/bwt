@@ -10,7 +10,7 @@ import {
   XCHACHA20_POLY1305_NONCE_BYTES,
   XCHACHA20_POLY1305_AAD_BYTES_MAX,
   XCHACHA20_POLY1305_PLAINTEXT_BYTES_MAX,
-  XCHACHA20_CIPHERTEXT_BYTES_MAX
+  XCHACHA20_CIPHERTEXT_BYTES_MAX,
 } from "./deps.ts";
 
 /** Supported BWT versions. */
@@ -51,7 +51,7 @@ const BWT_CONTEXT: Uint8Array = encode("BETTER_WEB_TOKEN", "utf8");
 
 /** BWT format regex. */
 const BWT_PATTERN: RegExp =
-  /^QldU[A-Za-z0-9-_=]{76}\.[A-Za-z0-9-_=]{4,3990}\.[A-Za-z0-9-_=]{24}$/;
+  /^QldU[A-Za-z0-9-_]{76}\.[A-Za-z0-9-_]{3,3992}\.[A-Za-z0-9-_]{22}$/;
 
 /** Curve25519 low-order public keys. https://cr.yp.to/ecdh.html#validate */
 const LOW_ORDER_PUBLIC_KEYS: Uint8Array[] = [
@@ -66,12 +66,12 @@ const LOW_ORDER_PUBLIC_KEYS: Uint8Array[] = [
   "TJyVvKNQjCSx0LFVnIPvWwREXMRYHI6G2CJO3dCfEdc=",
   "2f________________________________________8=",
   "2v________________________________________8=",
-  "2_________________________________________8="
-].map((publicKey: string): Uint8Array => encode(publicKey, "base64"));
+  "2_________________________________________8=",
+].map((publicKey: string): Uint8Array => encode(publicKey, "base64url"));
 
 /** Typ enum indicating a BWT version @ the Header.typ field. */
 export const enum Typ {
-  BWTv0
+  BWTv0,
 }
 
 /**
@@ -146,7 +146,7 @@ interface Sealed {
 function constantTimeEqual(
   actual: Uint8Array,
   expected: Uint8Array,
-  length: number
+  length: number,
 ): boolean {
   let diff: number = 0;
 
@@ -169,7 +169,7 @@ function bytesToBigIntBE(buf: Uint8Array): bigint {
   return buf.reduce(
     (acc: bigint, byte: number): bigint =>
       (acc << BIGINT_BYTE_SHIFT) | (BigInt(byte) & BIGINT_BYTE_MASK),
-    0n
+    0n,
   );
 }
 
@@ -184,7 +184,7 @@ function bigintToBytesBE(b: bigint, out: Uint8Array): void {
 /** Converts a header and nonce to a 60-byte buffer. */
 function headerAndNonceToBuffer(
   header: Header,
-  nonce: Uint8Array
+  nonce: Uint8Array,
 ): Uint8Array {
   const buf: Uint8Array = new Uint8Array(HEADER_BYTES);
 
@@ -207,17 +207,17 @@ function bufferToMetadata(buf: Uint8Array): [Header, string, Uint8Array] {
       typ: buf[3],
       iat: Number(bytesToBigIntBE(buf.subarray(4, 12))),
       exp: Number(bytesToBigIntBE(buf.subarray(12, 20))),
-      kid: buf.subarray(20, 36)
+      kid: buf.subarray(20, 36),
     },
-    decode(buf.subarray(20, 36), "base64"),
-    buf.subarray(36, HEADER_BYTES)
+    decode(buf.subarray(20, 36), "base64url"),
+    buf.subarray(36, HEADER_BYTES),
   ];
 }
 
 /** Shared key derivation. */
 function deriveSharedKey(
   secretKey: Uint8Array,
-  publicKey: Uint8Array
+  publicKey: Uint8Array,
 ): Uint8Array {
   const sharedSecret: Uint8Array = CURVE25519.scalarMult(secretKey, publicKey);
 
@@ -233,15 +233,13 @@ function deriveSharedKey(
 /** Transforms a collection of peer public keys to a shared key map. */
 function toSharedKeyMap(
   ownSecretKey: Uint8Array,
-  peerPublicKeys: PeerPublicKey[]
+  peerPublicKeys: PeerPublicKey[],
 ): Map<string, Uint8Array> {
   return new Map<string, Uint8Array>(
-    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] =>
-      [
-        decode(peerPublicKey.kid, "base64"),
-        deriveSharedKey(ownSecretKey, peerPublicKey.publicKey)
-      ]
-    )
+    peerPublicKeys.map((peerPublicKey: PeerPublicKey): [string, Uint8Array] => [
+      decode(peerPublicKey.kid, "base64url"),
+      deriveSharedKey(ownSecretKey, peerPublicKey.publicKey),
+    ]),
   );
 }
 
@@ -249,14 +247,14 @@ function toSharedKeyMap(
 function assembleToken(
   aad: Uint8Array,
   ciphertext: Uint8Array,
-  tag: Uint8Array
+  tag: Uint8Array,
 ): string {
   return (
-    decode(aad, "base64") +
+    decode(aad, "base64url") +
     "." +
-    decode(ciphertext, "base64") +
+    decode(ciphertext, "base64url") +
     "." +
-    decode(tag, "base64")
+    decode(tag, "base64url")
   );
 }
 
@@ -343,7 +341,7 @@ export function generateKeyPair(): KeyPair {
  */
 export function createStringify(
   ownSecretKey: Uint8Array,
-  peerPublicKey: PeerPublicKey
+  peerPublicKey: PeerPublicKey,
 ): Stringify {
   if (!isValidSecretKey(ownSecretKey)) {
     throw new TypeError("invalid secret key");
@@ -355,7 +353,7 @@ export function createStringify(
 
   const sharedKey: Uint8Array = deriveSharedKey(
     ownSecretKey,
-    peerPublicKey.publicKey
+    peerPublicKey.publicKey,
   );
 
   /**
@@ -376,7 +374,7 @@ export function createStringify(
 
     try {
       const nonce: Uint8Array = crypto.getRandomValues(
-        new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES)
+        new Uint8Array(XCHACHA20_POLY1305_NONCE_BYTES),
       );
 
       const aad: Uint8Array = headerAndNonceToBuffer(header, nonce);
@@ -436,7 +434,7 @@ export function createParse(
 
   const sharedKeyMap: Map<string, Uint8Array> = toSharedKeyMap(
     ownSecretKey,
-    peerPublicKeys
+    peerPublicKeys,
   );
 
   /**
@@ -474,7 +472,7 @@ export function createParse(
 
       const parts: string[] = token.split(".");
 
-      const aad: Uint8Array = encode(parts[0], "base64");
+      const aad: Uint8Array = encode(parts[0], "base64url");
 
       if (aad.byteLength > XCHACHA20_POLY1305_AAD_BYTES_MAX) {
         return null;
@@ -482,13 +480,13 @@ export function createParse(
 
       [header, kid, nonce] = bufferToMetadata(aad);
 
-      const ciphertext: Uint8Array = encode(parts[1], "base64");
+      const ciphertext: Uint8Array = encode(parts[1], "base64url");
 
       if (ciphertext.byteLength > XCHACHA20_CIPHERTEXT_BYTES_MAX) {
         return null;
       }
 
-      const tag: Uint8Array = encode(parts[2], "base64");
+      const tag: Uint8Array = encode(parts[2], "base64url");
 
       const sharedKey: undefined | Uint8Array = sharedKeyMap.get(kid);
 
@@ -501,7 +499,7 @@ export function createParse(
         nonce,
         ciphertext,
         aad,
-        tag
+        tag,
       );
 
       if (!plaintext) {
