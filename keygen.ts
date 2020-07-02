@@ -9,17 +9,17 @@ function main(): void {
   try {
     keyPair = generateKeyPair();
 
-    const publicKey: string = decode(keyPair.publicKey, "base64");
+    const publicKey: string = decode(keyPair.publicKey, "base64url");
 
-    const kid: string = decode(keyPair.kid, "base64");
+    const kid: string = decode(keyPair.kid, "base64url");
 
     const stringPeerPublicKey: string = JSON.stringify(
       { publicKey, kid, name: Deno.args[1] },
       null,
-      2
+      2,
     );
 
-    secretKey = decode(keyPair.secretKey, "base64");
+    secretKey = decode(keyPair.secretKey, "base64url");
 
     stringKeyPair = JSON.stringify({ secretKey, publicKey, kid }, null, 2);
 

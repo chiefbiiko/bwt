@@ -1,12 +1,9 @@
 import {
   assertEquals,
-  assertThrows
+  assertThrows,
 } from "https://deno.land/std@v0.51.0/testing/asserts.ts";
 
-import {
-  encode,
-  decode
-} from "./deps.ts";
+import { encode, decode } from "./deps.ts";
 
 import * as bwt from "./mod.ts";
 
@@ -16,7 +13,7 @@ function createHeader(source: { [key: string]: any } = {}): bwt.Header {
     iat: Date.now(),
     exp: Date.now() + 419,
     kid: source.kid,
-    ...source
+    ...source,
   };
 }
 
@@ -50,7 +47,7 @@ const c: C = { ...bwt.generateKeyPair(), name: "chief" } as C;
 a.stringify = bwt.createStringify(a.secretKey, {
   name: "bob",
   kid: b.kid,
-  publicKey: b.publicKey
+  publicKey: b.publicKey,
 });
 
 b.parse = bwt.createParse(
@@ -58,19 +55,19 @@ b.parse = bwt.createParse(
   {
     name: a.name,
     kid: a.kid,
-    publicKey: a.publicKey
+    publicKey: a.publicKey,
   },
   {
     name: c.name,
     kid: c.kid,
-    publicKey: c.publicKey
-  }
+    publicKey: c.publicKey,
+  },
 );
 
 c.stringify = bwt.createStringify(c.secretKey, {
   name: b.name,
   kid: b.kid,
-  publicKey: b.publicKey
+  publicKey: b.publicKey,
 });
 
 Deno.test({
@@ -85,7 +82,7 @@ Deno.test({
 
     assertEquals(contents?.header, inputHeader);
     assertEquals(contents?.body, inputBody);
-  }
+  },
 });
 
 Deno.test({
@@ -109,7 +106,7 @@ Deno.test({
     assertEquals(fromAlice?.body, inputBody);
     assertEquals(fromChiefbiiko?.header, chiefInputHeader);
     assertEquals(fromChiefbiiko?.body, inputBody);
-  }
+  },
 });
 
 Deno.test({
@@ -119,13 +116,13 @@ Deno.test({
       (): void => {
         bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES - 1), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-          kid: new Uint8Array(bwt.KID_BYTES)
+          kid: new Uint8Array(bwt.KID_BYTES),
         });
       },
       TypeError,
-      "invalid secret key"
+      "invalid secret key",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -135,13 +132,13 @@ Deno.test({
       (): void => {
         bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
-          kid: new Uint8Array(bwt.KID_BYTES)
+          kid: new Uint8Array(bwt.KID_BYTES),
         });
       },
       TypeError,
-      "invalid peer public key"
+      "invalid peer public key",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -151,13 +148,13 @@ Deno.test({
       (): void => {
         bwt.createStringify(new Uint8Array(bwt.SECRET_KEY_BYTES), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-          kid: new Uint8Array(bwt.KID_BYTES - 1)
+          kid: new Uint8Array(bwt.KID_BYTES - 1),
         });
       },
       TypeError,
-      "invalid peer public key"
+      "invalid peer public key",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -168,9 +165,9 @@ Deno.test({
         bwt.createParse(Uint8Array.from([1, 2, 3]));
       },
       TypeError,
-      "invalid secret key"
+      "invalid secret key",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -180,13 +177,13 @@ Deno.test({
       (): void => {
         bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES - 1),
-          kid: new Uint8Array(bwt.KID_BYTES)
+          kid: new Uint8Array(bwt.KID_BYTES),
         });
       },
       TypeError,
-      "invalid peer public keys"
+      "invalid peer public keys",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -196,13 +193,13 @@ Deno.test({
       (): void => {
         bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-          kid: new Uint8Array(bwt.KID_BYTES - 1)
+          kid: new Uint8Array(bwt.KID_BYTES - 1),
         });
       },
       TypeError,
-      "invalid peer public keys"
+      "invalid peer public keys",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -213,9 +210,9 @@ Deno.test({
         bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES));
       },
       TypeError,
-      "no peer public keys provided"
+      "no peer public keys provided",
     );
-  }
+  },
 });
 
 Deno.test({
@@ -225,20 +222,20 @@ Deno.test({
       (): void => {
         bwt.createParse(new Uint8Array(bwt.SECRET_KEY_BYTES), {
           publicKey: new Uint8Array(bwt.PUBLIC_KEY_BYTES),
-          kid: new Uint8Array(bwt.KID_BYTES)
+          kid: new Uint8Array(bwt.KID_BYTES),
         });
       },
       TypeError,
-      "invalid peer public keys"
+      "invalid peer public keys",
     );
-  }
+  },
 });
 
 Deno.test({
   name: "stringify nulls if header is nullish",
   fn(): void {
     assertEquals(a.stringify(null!, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -247,7 +244,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, null!), null);
-  }
+  },
 });
 
 Deno.test({
@@ -256,7 +253,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ typ: 255, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -265,7 +262,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ kid: null });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -274,7 +271,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ iat: -1, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -283,18 +280,18 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ iat: NaN, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
   name: "stringify nulls if iat is Infinity",
   fn(): void {
     const inputHeader: bwt.Header = createHeader(
-      { iat: Infinity, kid: a.kid }
+      { iat: Infinity, kid: a.kid },
     );
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -303,7 +300,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ iat: null, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -312,7 +309,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ exp: -1, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -321,18 +318,18 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ exp: NaN, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
   name: "stringify nulls if exp is Infinity",
   fn(): void {
     const inputHeader: bwt.Header = createHeader(
-      { exp: Infinity, kid: a.kid }
+      { exp: Infinity, kid: a.kid },
     );
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -341,7 +338,7 @@ Deno.test({
     const inputHeader: bwt.Header = createHeader({ exp: null, kid: a.kid });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
@@ -349,24 +346,24 @@ Deno.test({
   fn(): void {
     const inputHeader: bwt.Header = createHeader({
       exp: Date.now() - 1,
-      kid: a.kid
+      kid: a.kid,
     });
 
     assertEquals(a.stringify(inputHeader, createBody()), null);
-  }
+  },
 });
 
 Deno.test({
   name: "parse nulls if kid is unknown",
   fn(): void {
     const inputHeader: bwt.Header = createHeader({
-      kid: encode("deadbeefdeadbeef", "utf8")
+      kid: encode("deadbeefdeadbeef", "utf8"),
     });
 
     const token: null | string = a.stringify(inputHeader, createBody());
 
     assertEquals(b.parse(token!), null);
-  }
+  },
 });
 
 Deno.test({
@@ -376,7 +373,7 @@ Deno.test({
 
     const token: null | string = a.stringify(
       createHeader({ kid: a.kid, exp }),
-      createBody()
+      createBody(),
     );
 
     assertEquals(typeof token, "string");
@@ -385,7 +382,7 @@ Deno.test({
     while (Date.now() < exp) {}
 
     assertEquals(b.parse(token!), null);
-  }
+  },
 });
 
 Deno.test({
@@ -398,16 +395,16 @@ Deno.test({
 
     const parts: string[] = token!.split(".");
 
-    const headerBuf: Uint8Array = encode(parts[0], "base64");
+    const headerBuf: Uint8Array = encode(parts[0], "base64url");
 
     headerBuf[36] ^= 0x99;
 
-    parts[0] = decode(headerBuf, "base64");
+    parts[0] = decode(headerBuf, "base64url");
 
     token = parts.join(".");
 
     assertEquals(b.parse(token), null);
-  }
+  },
 });
 
 Deno.test({
@@ -420,16 +417,16 @@ Deno.test({
 
     const parts: string[] = token!.split(".");
 
-    const headerBuf: Uint8Array = encode(parts[0], "base64");
+    const headerBuf: Uint8Array = encode(parts[0], "base64url");
 
     headerBuf[headerBuf.byteLength - 1] ^= 0x99;
 
-    parts[0] = decode(headerBuf, "base64");
+    parts[0] = decode(headerBuf, "base64url");
 
     token = parts.join(".");
 
     assertEquals(b.parse(token), null);
-  }
+  },
 });
 
 Deno.test({
@@ -442,16 +439,16 @@ Deno.test({
 
     const parts: string[] = token!.split(".");
 
-    let corruptTag: Uint8Array = encode(parts[2], "base64");
+    let corruptTag: Uint8Array = encode(parts[2], "base64url");
 
     corruptTag[0] ^= 0x99;
 
-    parts[2] = decode(corruptTag, "base64");
+    parts[2] = decode(corruptTag, "base64url");
 
     token = parts.join(".");
 
     assertEquals(b.parse(token), null);
-  }
+  },
 });
 
 Deno.test({
@@ -464,14 +461,14 @@ Deno.test({
 
     const parts: string[] = token!.split(".");
 
-    let corruptCiphertext: Uint8Array = encode(parts[1], "base64");
+    let corruptCiphertext: Uint8Array = encode(parts[1], "base64url");
 
     corruptCiphertext[0] ^= 0x99;
 
-    parts[1] = decode(corruptCiphertext, "base64");
+    parts[1] = decode(corruptCiphertext, "base64url");
 
     token = parts.join(".");
 
     assertEquals(b.parse(token), null);
-  }
+  },
 });
