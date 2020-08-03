@@ -28,7 +28,7 @@ Below is an Alice and Bob example. Note that in the real world Alice and Bob are
 typically an auth and a resource endpoint respectively.
 
 ```ts
-import * as bwt from "https://denopkg.com/chiefbiiko/bwt@v0.5.0/mod.ts";
+import * as bwt from "https://denopkg.com/chiefbiiko/bwt@v0.6.0/mod.ts";
 
 const alice = { ...bwt.generateKeyPair() };
 const bob = { ...bwt.generateKeyPair() };
@@ -225,7 +225,7 @@ Do renew all key pairs involved in your application setting regularly!
 
 2. Get this repo:
 
-   `git clone https://github.com/chiefbiiko/bwt@v0.5.0 && cd ./bwt && mkdir ./cache`
+   `git clone https://github.com/chiefbiiko/bwt@v0.6.0 && cd ./bwt && mkdir ./cache`
 
 3. Cache all dependencies and run tests:
 
